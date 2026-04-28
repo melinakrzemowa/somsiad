@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import smtplib
 import ssl
 import subprocess
@@ -214,17 +215,30 @@ def collect_silences() -> list[dict]:
     return rows
 
 
+_MEM_RE = re.compile(r"\s*([\d.]+)\s*([KMGTP]?i?B)\b", re.IGNORECASE)
+
+
 def _parse_mem_string(s: str) -> float:
     """Parse '203.7MiB' / '5.772GiB' / '1.0KiB' -> MiB."""
-    try:
-        x = s.strip()
-        n = float("".join(ch for ch in x if ch.isdigit() or ch == "."))
-        unit = x.rstrip(" 0123456789.")
-        mult = {"KiB": 1 / 1024, "MiB": 1, "GiB": 1024, "TiB": 1024 * 1024,
-                "B": 1 / (1024 * 1024)}.get(unit, 1)
-        return n * mult
-    except Exception:
+    if not s:
         return 0.0
+    m = _MEM_RE.search(s)
+    if not m:
+        return 0.0
+    try:
+        n = float(m.group(1))
+    except ValueError:
+        return 0.0
+    unit = m.group(2).upper().replace("I", "")  # KiB -> KB style
+    mult = {
+        "B": 1 / (1024 * 1024),
+        "KB": 1 / 1024,
+        "MB": 1,
+        "GB": 1024,
+        "TB": 1024 * 1024,
+        "PB": 1024 * 1024 * 1024,
+    }.get(unit, 1)
+    return n * mult
 
 
 def collect_host_resources() -> dict:
