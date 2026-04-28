@@ -46,7 +46,7 @@
       "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "sum(rate(phoenix_endpoint_stop_duration_seconds_count{job=\"$service\"}[5m]))", "refId": "A" }
+        { "expr": "sum(rate(phoenix_http_request_duration_milliseconds_count{job=\"$service\"}[5m]))", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "reqps", "decimals": 2 } }
     },
@@ -58,7 +58,7 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum(rate(phoenix_endpoint_stop_duration_seconds_count{job=\"$service\",status_class=\"500\"}[5m])) / clamp_min(sum(rate(phoenix_endpoint_stop_duration_seconds_count{job=\"$service\"}[5m])), 1e-9)",
+          "expr": "sum(rate(phoenix_http_request_duration_milliseconds_count{job=\"$service\",status=~\"5..\"}[5m])) / clamp_min(sum(rate(phoenix_http_request_duration_milliseconds_count{job=\"$service\"}[5m])), 1e-9)",
           "refId": "A"
         }
       ],
@@ -82,11 +82,11 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(phoenix_endpoint_stop_duration_seconds_bucket{job=\"$service\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(phoenix_http_request_duration_milliseconds_bucket{job=\"$service\"}[5m])))",
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "fieldConfig": { "defaults": { "unit": "ms" } }
     },
     {
       "id": 5,
@@ -96,8 +96,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (status_class) (rate(phoenix_endpoint_stop_duration_seconds_count{job=\"$service\"}[2m]))",
-          "legendFormat": "{{status_class}}xx",
+          "expr": "sum by (status) (rate(phoenix_http_request_duration_milliseconds_count{job=\"$service\"}[2m]))",
+          "legendFormat": "{{status}}",
           "refId": "A"
         }
       ]
@@ -109,11 +109,11 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "histogram_quantile(0.50, sum by (le) (rate(phoenix_endpoint_stop_duration_seconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p50", "refId": "A" },
-        { "expr": "histogram_quantile(0.95, sum by (le) (rate(phoenix_endpoint_stop_duration_seconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p95", "refId": "B" },
-        { "expr": "histogram_quantile(0.99, sum by (le) (rate(phoenix_endpoint_stop_duration_seconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p99", "refId": "C" }
+        { "expr": "histogram_quantile(0.50, sum by (le) (rate(phoenix_http_request_duration_milliseconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p50", "refId": "A" },
+        { "expr": "histogram_quantile(0.95, sum by (le) (rate(phoenix_http_request_duration_milliseconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p95", "refId": "B" },
+        { "expr": "histogram_quantile(0.99, sum by (le) (rate(phoenix_http_request_duration_milliseconds_bucket{job=\"$service\"}[5m])))", "legendFormat": "p99", "refId": "C" }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "fieldConfig": { "defaults": { "unit": "ms" } }
     },
     {
       "id": 7,
@@ -130,7 +130,7 @@
       "fieldConfig": { "defaults": { "unit": "decmbytes" } }
     },
     {
-      "id": 8,
+      "id": 9,
       "type": "logs",
       "title": "Logs",
       "gridPos": { "h": 12, "w": 12, "x": 12, "y": 12 },

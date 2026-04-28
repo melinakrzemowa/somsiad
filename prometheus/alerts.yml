@@ -50,16 +50,16 @@ groups:
     interval: 1m
     rules:
       - alert: PhoenixHighErrorRate
-        # prom_ex exposes phoenix_endpoint_stop_duration_seconds_count with status_class label.
+        # prom_ex exposes phoenix_http_request_duration_milliseconds_count with `status` (HTTP status code).
         # Fire if 5xx rate is > 5% over the last 10 minutes and at least 10 reqs/min.
         expr: |
           (
-            sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count{status_class="500"}[10m]))
+            sum by (job) (rate(phoenix_http_request_duration_milliseconds_count{status=~"5.."}[10m]))
             /
-            sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count[10m]))
+            sum by (job) (rate(phoenix_http_request_duration_milliseconds_count[10m]))
           ) > 0.05
           and
-          sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count[10m])) > 10/60
+          sum by (job) (rate(phoenix_http_request_duration_milliseconds_count[10m])) > 10/60
         for: 10m
         labels:
           severity: warning
