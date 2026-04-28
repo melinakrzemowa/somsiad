@@ -21,6 +21,15 @@ scrape_configs:
     static_configs:
       - targets: [alloy:12345]
 
+  # cAdvisor — per-container CPU/RAM/IO. Has to run as a dedicated
+  # privileged container to see other containers' cgroups; Alloy's
+  # bundled cadvisor exporter only sees the root cgroup from inside
+  # an unprivileged container.
+  - job_name: cadvisor
+    scrape_interval: 30s
+    static_configs:
+      - targets: [cadvisor:8080]
+
   # macOS host metrics from node_exporter (brew install node_exporter, brew services start)
   # Bound to all interfaces on :9100; reachable from containers via host.docker.internal.
   - job_name: host

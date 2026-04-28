@@ -107,20 +107,10 @@ otelcol.exporter.otlp "tempo" {
 }
 
 // =============================================================================
-// METRICS — cAdvisor (container) + Blackbox (HTTP probes)
-// Prometheus scrapes Alloy's /metrics endpoints for these.
+// METRICS — Blackbox (HTTP probes). Per-container metrics come from a
+// dedicated cAdvisor service (see docker-compose.yml); Prometheus scrapes
+// it directly via its own scrape_config.
 // =============================================================================
-
-prometheus.exporter.cadvisor "containers" {
-  docker_host = "unix:///var/run/docker.sock"
-  storage_duration = "5m"
-}
-
-prometheus.scrape "cadvisor" {
-  targets    = prometheus.exporter.cadvisor.containers.targets
-  forward_to = [prometheus.remote_write.local.receiver]
-  scrape_interval = "30s"
-}
 
 prometheus.exporter.blackbox "public_http" {
   config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } } } }"
