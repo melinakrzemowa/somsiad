@@ -21,9 +21,10 @@ import sys
 import time
 import traceback
 from datetime import datetime, timezone
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from email.utils import formatdate
+from email.utils import formatdate, make_msgid
 from html import escape
 
 # --- config -----------------------------------------------------------------
@@ -38,6 +39,17 @@ MAIL_FROM_ADDR = "alert@melinakrzemowa.pl"
 MAIL_TO = "kelostrada@gmail.com"
 PROM_CONTAINER = "monitoringmelinakrzemowapl-prometheus-1"
 ALLOY_NETWORK = "monitoringmelinakrzemowapl_default"
+ENV_FILE = f"{DEPLOY_DIR}/.env"
+
+# Grafana panels to render into the email. Each panel is fetched as a PNG
+# from Grafana's image renderer and attached inline.
+WEEKLY_DASHBOARD_UID = "somsiad-weekly"
+RENDER_PANELS = [
+    {"id": 1, "title": "Service uptime", "height": 280},
+    {"id": 2, "title": "Phoenix request rate", "height": 320},
+    {"id": 3, "title": "Phoenix p95 latency", "height": 280},
+    {"id": 4, "title": "Container memory", "height": 280},
+]
 
 # Public URLs to probe.
 PROBES = [
@@ -76,6 +88,76 @@ def mon_curl(url: str, timeout: int = 8) -> str:
         "wget", "-qO-", "-T", str(timeout), url,
         timeout=timeout + 4,
     )
+
+
+def mon_curl_bytes(url: str, headers: list[tuple[str, str]] | None = None,
+                   timeout: int = 60) -> bytes:
+    """Fetch a URL inside the monitoring docker network as raw bytes.
+
+    Uses a throwaway curlimages/curl container so we get binary-safe stdout
+    (subprocess with text=False) and proper HTTP semantics.
+    """
+    args = ["docker", "run", "--rm", "--network", ALLOY_NETWORK,
+            "curlimages/curl:8.10.1",
+            "-s", "--max-time", str(timeout), "--fail-with-body"]
+    for k, v in headers or []:
+        args.extend(["-H", f"{k}: {v}"])
+    args.append(url)
+    try:
+        r = subprocess.run(args, capture_output=True, timeout=timeout + 10, check=False)
+        if r.returncode != 0:
+            sys.stderr.write(
+                f"mon_curl_bytes: curl exit {r.returncode} for {url}\n"
+                f"stderr: {r.stderr.decode('utf-8', 'replace')[:400]}\n"
+            )
+            return b""
+        return r.stdout
+    except Exception as e:
+        sys.stderr.write(f"mon_curl_bytes: {e}\n")
+        return b""
+
+
+def read_env_file(path: str) -> dict[str, str]:
+    """Tiny .env parser. Strips surrounding quotes; ignores comments."""
+    out: dict[str, str] = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                s = line.strip()
+                if not s or s.startswith("#") or "=" not in s:
+                    continue
+                k, v = s.split("=", 1)
+                out[k.strip()] = v.strip().strip('"').strip("'")
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def render_panel(uid: str, panel_id: int, width: int = 1100, height: int = 280,
+                 time_from: str = "now-7d", time_to: str = "now") -> bytes:
+    """Snapshot a single Grafana panel as a PNG.
+
+    width=1100 produces a crisp image at the email's display width (600px)
+    on retina screens. The renderer scales internally to whatever it needs.
+    """
+    env = read_env_file(ENV_FILE)
+    user = env.get("GF_SECURITY_ADMIN_USER", "admin")
+    password = env.get("GF_SECURITY_ADMIN_PASSWORD", "")
+    if not password:
+        sys.stderr.write("render_panel: no GF_SECURITY_ADMIN_PASSWORD in .env\n")
+        return b""
+
+    # Basic auth header. The renderer is stateless and only available on the
+    # internal docker network, so basic auth here is fine.
+    import base64
+    creds = base64.b64encode(f"{user}:{password}".encode()).decode()
+
+    url = (
+        f"http://grafana:3000/render/d-solo/{uid}/?"
+        f"panelId={panel_id}&from={time_from}&to={time_to}"
+        f"&width={width}&height={height}&tz=Europe%2FWarsaw"
+    )
+    return mon_curl_bytes(url, headers=[("Authorization", f"Basic {creds}")])
 
 
 def query_prom(query: str) -> dict:
@@ -733,6 +815,36 @@ def html_report(report: dict, warns: list[str]) -> str:
         "</div>"
     )
 
+    # ---- Charts (rendered Grafana panels) ----
+    charts = report.get("charts", [])
+    if charts:
+        chart_blocks = []
+        for c in charts:
+            chart_blocks.append(
+                f'<div style="margin-bottom:14px;">'
+                f'<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
+                f'letter-spacing:0.04em;font-weight:600;margin-bottom:6px;">'
+                f'{escape(c["title"])}</div>'
+                f'<img src="cid:{escape(c["cid"])}" alt="{escape(c["title"])}" '
+                f'width="100%" style="display:block;width:100%;max-width:552px;'
+                f'height:auto;border:1px solid #d0d7de;border-radius:6px;"/>'
+                "</div>"
+            )
+        charts_card = (
+            f'<div style="{css_card}">'
+            f'<h2 style="{css_h2}">Charts (last 7 days)</h2>'
+            + "".join(chart_blocks)
+            + '<div style="font-size:11px;color:#656d76;margin-top:8px;">'
+            'Live versions: '
+            f'<a href="https://monitoring.melinakrzemowa.pl/d/{escape(WEEKLY_DASHBOARD_UID)}" '
+            'style="color:#0969da;text-decoration:none;">'
+            'monitoring.melinakrzemowa.pl/d/somsiad-weekly</a>'
+            "</div>"
+            "</div>"
+        )
+    else:
+        charts_card = ""
+
     body = (
         '<!doctype html><html><head>'
         '<meta charset="utf-8"/>'
@@ -755,6 +867,7 @@ def html_report(report: dict, warns: list[str]) -> str:
         + f'<h2 style="{css_h2}">At a glance</h2>'
         + tldr_html
         + "</div>"
+        + charts_card
         + containers_card
         + probes_card
         + traces_card
@@ -851,6 +964,30 @@ def text_report(report: dict, warns: list[str]) -> str:
 
 # --- main -------------------------------------------------------------------
 
+def collect_charts() -> list[dict]:
+    """Render the weekly dashboard panels as PNG bytes. Best-effort: a
+    chart that fails to render is omitted from the email but doesn't fail
+    the whole run."""
+    out = []
+    for spec in RENDER_PANELS:
+        png = render_panel(WEEKLY_DASHBOARD_UID, spec["id"],
+                           height=spec.get("height", 280))
+        if png and png[:4] == b"\x89PNG":
+            cid = make_msgid(domain="somsiad")[1:-1]  # strip < >
+            out.append({
+                "id": spec["id"],
+                "title": spec["title"],
+                "png": png,
+                "cid": cid,
+            })
+        else:
+            sys.stderr.write(
+                f"chart panel {spec['id']} ({spec['title']}): no PNG returned "
+                f"({len(png)} bytes)\n"
+            )
+    return out
+
+
 def collect_all() -> dict:
     return {
         "containers": collect_containers(),
@@ -860,23 +997,38 @@ def collect_all() -> dict:
         "silences": collect_silences(),
         "host": collect_host_resources(),
         "node_exporter": collect_node_exporter(),
+        "charts": collect_charts(),
     }
 
 
-def send_email(subject: str, html: str, text: str) -> None:
-    msg = MIMEMultipart("alternative")
-    msg["From"] = f"{MAIL_FROM_NAME} <{MAIL_FROM_ADDR}>"
-    msg["To"] = MAIL_TO
-    msg["Subject"] = subject
-    msg["Date"] = formatdate(localtime=True)
-    msg.attach(MIMEText(text, "plain", "utf-8"))
-    msg.attach(MIMEText(html, "html", "utf-8"))
+def send_email(subject: str, html: str, text: str, charts: list[dict]) -> None:
+    """Build a multipart/related email so cid: image references in the HTML
+    resolve to the rendered Grafana panel PNGs."""
+    # Outer container holds the body + inline images.
+    root = MIMEMultipart("related")
+    root["From"] = f"{MAIL_FROM_NAME} <{MAIL_FROM_ADDR}>"
+    root["To"] = MAIL_TO
+    root["Subject"] = subject
+    root["Date"] = formatdate(localtime=True)
+
+    # Body alternates text and HTML for clients that pick.
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(text, "plain", "utf-8"))
+    alt.attach(MIMEText(html, "html", "utf-8"))
+    root.attach(alt)
+
+    for c in charts:
+        img = MIMEImage(c["png"], _subtype="png")
+        img.add_header("Content-ID", f"<{c['cid']}>")
+        img.add_header("Content-Disposition", "inline",
+                       filename=f"{c['cid']}.png")
+        root.attach(img)
 
     password = open(SMTP_PASSWORD_FILE).read().strip()
     ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=30) as s:
+    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, context=ctx, timeout=60) as s:
         s.login(SMTP_USER, password)
-        s.send_message(msg)
+        s.send_message(root)
 
 
 def main() -> int:
@@ -899,8 +1051,9 @@ def main() -> int:
         else:
             subject = f"[somsiad] OK — {date_tag}"
 
-        send_email(subject, html, text)
-        print(f"sent: {subject}")
+        send_email(subject, html, text, report.get("charts", []))
+        n_charts = len(report.get("charts", []))
+        print(f"sent: {subject} ({n_charts} chart{'s' if n_charts != 1 else ''})")
         return 0
     except Exception:
         traceback.print_exc()
