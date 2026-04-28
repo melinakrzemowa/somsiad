@@ -45,10 +45,11 @@ ENV_FILE = f"{DEPLOY_DIR}/.env"
 # from Grafana's image renderer and attached inline.
 WEEKLY_DASHBOARD_UID = "somsiad-weekly"
 
-# Default chart window. Bump to "now-7d" once we have a full week of data
-# (~ 2026-05-04). Until then, a 7-day window leaves most of the canvas
-# blank and the recent data is too narrow to see.
-CHART_FROM = "now-24h"
+# Default chart window. The "weekly" cadence wants a 7-day view; if we
+# don't have a week of data yet, Grafana's panel can render its
+# "No data" placeholder (sparse-result heuristic). By the first real
+# Monday run we should be past that.
+CHART_FROM = "now-7d"
 
 RENDER_PANELS = [
     {"id": 1, "title": "Service uptime", "height": 280},
