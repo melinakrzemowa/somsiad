@@ -116,7 +116,7 @@
       "gridPos": { "h": 7, "w": 24, "x": 0, "y": 22 },
       "targets": [
         {
-          "expr": "topk(8, container_memory_usage_bytes{name!=\"\"}) / 1024 / 1024",
+          "expr": "topk(8, container_memory_usage_bytes{container_id!=\"\"} * on(container_id) group_left(name) docker_container_info) / 1024 / 1024",
           "legendFormat": "{{name}}",
           "refId": "A"
         }

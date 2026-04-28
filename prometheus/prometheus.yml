@@ -25,10 +25,31 @@ scrape_configs:
   # privileged container to see other containers' cgroups; Alloy's
   # bundled cadvisor exporter only sees the root cgroup from inside
   # an unprivileged container.
+  # Maps Docker container ID -> name+image. cAdvisor on Colima only knows
+  # cgroup IDs; this lets PromQL queries join names back via container_id.
+  - job_name: docker-names
+    scrape_interval: 30s
+    static_configs:
+      - targets: [docker-names:9101]
+
   - job_name: cadvisor
     scrape_interval: 30s
     static_configs:
       - targets: [cadvisor:8080]
+    metric_relabel_configs:
+      # cAdvisor on Colima only emits the cgroup `id` (e.g. /docker/<full-id>);
+      # the Docker factory is disabled because Colima's overlayfs layout
+      # breaks it. Extract the first 12 chars of the container ID into a
+      # short `container_id` label for joins with docker_container_info.
+      - source_labels: [id]
+        regex: '/docker/([0-9a-f]{12})[0-9a-f]*'
+        target_label: container_id
+        replacement: '${1}'
+      # Drop the noisy raw cgroup leaf series that aren't /docker/* —
+      # we only want per-container metrics.
+      - source_labels: [id]
+        regex: '/(system\.slice|user\.slice|init\.scope).*'
+        action: drop
 
   # macOS host metrics from node_exporter (brew install node_exporter, brew services start)
   # Bound to all interfaces on :9100; reachable from containers via host.docker.internal.
