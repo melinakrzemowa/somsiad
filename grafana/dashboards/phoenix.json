@@ -122,10 +122,10 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "beam_memory_atom_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "atom", "refId": "A" },
-        { "expr": "beam_memory_processes_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "processes", "refId": "B" },
-        { "expr": "beam_memory_binary_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "binary", "refId": "C" },
-        { "expr": "beam_memory_ets_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "ets", "refId": "D" }
+        { "expr": "beam_memory_atom_total_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "atom", "refId": "A" },
+        { "expr": "beam_memory_processes_total_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "processes", "refId": "B" },
+        { "expr": "beam_memory_binary_total_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "binary", "refId": "C" },
+        { "expr": "beam_memory_ets_total_bytes{job=\"$service\"} / 1024 / 1024", "legendFormat": "ets", "refId": "D" }
       ],
       "fieldConfig": { "defaults": { "unit": "decmbytes" } }
     },

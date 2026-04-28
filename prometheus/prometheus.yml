@@ -34,9 +34,10 @@ scrape_configs:
   # Phoenix apps — exposed via prom_ex on the same port as the app.
   # (Will start returning data once prom_ex is wired up; until then this
   #  scrape job will fail and the "service down" alert will fire on those.)
-  # PromEx prefixes metric names with the OTP app name. Strip it so dashboards
-  # can use unified queries (`phoenix_http_request_duration_milliseconds_*`)
-  # instead of per-app names. The `service` label still distinguishes apps.
+  # PromEx prefixes metrics with `<otp_app>_prom_ex_<namespace>_*`. Strip the
+  # `<otp_app>_prom_ex_` part so dashboards use unified names (e.g. `phoenix_*`,
+  # `beam_*`) regardless of which app emits them. The `service` label still
+  # distinguishes apps.
   - job_name: instagrain
     metrics_path: /metrics
     static_configs:
@@ -44,7 +45,7 @@ scrape_configs:
         labels: { service: instagrain }
     metric_relabel_configs:
       - source_labels: [__name__]
-        regex: 'instagrain_(.+)'
+        regex: 'instagrain_prom_ex_(.+)'
         target_label: __name__
         replacement: '${1}'
 
@@ -55,7 +56,7 @@ scrape_configs:
         labels: { service: sribia }
     metric_relabel_configs:
       - source_labels: [__name__]
-        regex: 'abyss_(.+)'
+        regex: 'abyss_prom_ex_(.+)'
         target_label: __name__
         replacement: '${1}'
 
