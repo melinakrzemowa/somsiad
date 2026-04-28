@@ -61,15 +61,16 @@ services:
     devices:
       - /dev/kmsg:/dev/kmsg
     # Colima's Docker uses the `overlayfs` storage driver (not overlay2)
-    # with a non-standard /var/lib/docker layout: no `image/` subdir.
-    # cAdvisor's disk/storage instrumentation reads that layerdb path and
-    # fails, which causes per-container series to be dropped. We mount
-    # only what's strictly needed and disable the metrics that require
-    # the missing layerdb. Per-container CPU/memory/network/fs metrics
-    # come from the cgroup tree directly.
+    # with a non-standard /var/lib/docker layout: no image/layerdb dir.
+    # If cAdvisor's Docker factory registers, every container fails to
+    # initialise with "failed to identify the read-write layer ID" and
+    # no per-container metrics get emitted. Workaround: do NOT mount the
+    # Docker socket — Docker factory registration then fails fast, and
+    # the Raw factory enumerates /docker/* cgroups directly via
+    # --raw_cgroup_prefix_whitelist. We lose Docker-API enrichment
+    # (image/labels) but we get the CPU/RAM/network metrics we want.
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /dev/disk/:/dev/disk:ro
     command:
@@ -77,10 +78,8 @@ services:
       - --store_container_labels=false
       - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
       - --disable_metrics=referenced_memory,cpu_topology,resctrl,udp,advtcp,sched,hugetlb,disk
-      # Force the Raw factory to enumerate /docker/* cgroups directly. The
-      # Docker factory fails on Colima because /var/lib/docker uses the
-      # overlayfs driver with no image/layerdb tree, so we bypass it.
       - --raw_cgroup_prefix_whitelist=/docker
+      - --docker=unix:///nonexistent/docker.sock
     expose:
       - "8080"
 
