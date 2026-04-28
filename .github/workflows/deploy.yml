@@ -59,7 +59,10 @@ jobs:
             set -e
             cd /Users/${{ secrets.SSH_USERNAME }}/services/monitoring.melinakrzemowa.pl
             test -f .env || { echo "ERROR: .env missing on host. Create it from .env.example."; exit 1; }
-            docker compose pull
-            docker compose up -d --remove-orphans
+            # `up --build --pull missing`: pulls anything new from registries
+            # AND rebuilds locally-defined services (docker-names-exporter)
+            # whose image isn't on any registry. --remove-orphans cleans up
+            # services we removed in the compose file.
+            docker compose up -d --build --pull missing --remove-orphans
             docker compose ps
           DEPLOY
