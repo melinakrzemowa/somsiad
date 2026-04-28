@@ -4,3 +4,7 @@
 volumes/
 .DS_Store
 alertmanager/smtp_password
+__pycache__/
+*.pyc
+scripts/last_run.*
+scripts/launchd.*.log
