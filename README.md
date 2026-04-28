@@ -161,6 +161,26 @@ ssh air "docker stop mooncraft"   # ServiceDown will fire ~2 min later
 ssh air "docker start mooncraft"
 ```
 
+## Weekly health email (launchd)
+
+`scripts/weekly_check.sh` produces a plain-text report covering containers, restart counts, public probes, recent traces, alerts that fired in the past week, active silences, host resources, and `node_exporter`. It emails the report via the same SMTP creds Alertmanager uses (`alert@melinakrzemowa.pl`), to the same recipient.
+
+`launchd/com.melinakrzemowa.somsiad-weekly.plist` runs it every Monday at 09:00 local time as a user agent. Install once on the Air:
+
+```sh
+ssh air
+cp /Users/kelu/services/monitoring.melinakrzemowa.pl/launchd/com.melinakrzemowa.somsiad-weekly.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.melinakrzemowa.somsiad-weekly.plist
+```
+
+Run on demand to verify:
+```sh
+ssh air "launchctl kickstart -k gui/\$(id -u)/com.melinakrzemowa.somsiad-weekly"
+ssh air cat /Users/kelu/services/monitoring.melinakrzemowa.pl/scripts/last_run.log
+```
+
+If the laptop is asleep at fire time the job runs as soon as it wakes. Logs land in `scripts/launchd.{out,err}.log` for debugging, and a copy of the most recent report is in `scripts/last_run.log`.
+
 ## Resource budget
 
 Measured RSS on the Air after ~24h of warmup with normal traffic:
