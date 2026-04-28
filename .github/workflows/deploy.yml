@@ -65,4 +65,10 @@ jobs:
             # services we removed in the compose file.
             docker compose up -d --build --pull missing --remove-orphans
             docker compose ps
+            # Bind-mounted config-only changes (prometheus.yml, alerts.yml)
+            # don't restart their container, so trigger a hot reload here.
+            # Best-effort: ignore errors if a service is still warming up.
+            docker exec monitoringmelinakrzemowapl-prometheus-1 \
+              wget -q --post-data='' http://localhost:9090/-/reload || true
+            docker kill --signal=HUP monitoringmelinakrzemowapl-alertmanager-1 || true
           DEPLOY
