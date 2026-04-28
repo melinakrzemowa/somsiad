@@ -77,6 +77,10 @@ services:
       - --store_container_labels=false
       - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
       - --disable_metrics=referenced_memory,cpu_topology,resctrl,udp,advtcp,sched,hugetlb,disk
+      # Force the Raw factory to enumerate /docker/* cgroups directly. The
+      # Docker factory fails on Colima because /var/lib/docker uses the
+      # overlayfs driver with no image/layerdb tree, so we bypass it.
+      - --raw_cgroup_prefix_whitelist=/docker
     expose:
       - "8080"
 
