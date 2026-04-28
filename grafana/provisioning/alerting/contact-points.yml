@@ -1,0 +1,15 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: email-default
+    receivers:
+      - uid: email-default-1
+        type: email
+        settings:
+          # Comma-separated list — overridable via ALERT_EMAIL_TO env var on the host.
+          # Grafana provisioning supports $env{VAR} expansion.
+          addresses: ${ALERT_EMAIL_TO}
+          singleEmail: false
+          subject: "[somsiad] {{ .Status | toUpper }}: {{ .CommonLabels.alertname }}"
+        disableResolveMessage: false

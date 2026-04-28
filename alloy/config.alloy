@@ -1,0 +1,161 @@
+// =============================================================================
+// LOGS — discover all docker containers and ship their stdout/stderr to Loki
+// =============================================================================
+
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+  refresh_interval = "30s"
+}
+
+discovery.relabel "containers" {
+  targets = discovery.docker.containers.targets
+
+  // Drop our own monitoring containers from log collection (they're noisy and
+  // we'd be storing their logs in Loki, which generates more logs, etc.)
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(grafana|prometheus|loki|tempo|alloy)"
+    action        = "drop"
+  }
+
+  // Use the container name (minus leading /) as the loki "container" label.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Best-effort: tag a 'service' label by stripping the docker-compose suffix.
+  // e.g. instamelinakrzemowapl-web-1 -> instagrain
+  //      sribiamelinakrzemowapl-db-1 -> sribia-db
+  //      mooncraft -> mooncraft
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/insta.*-web-.*"
+    target_label  = "service"
+    replacement   = "instagrain"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/insta.*-db-.*"
+    target_label  = "service"
+    replacement   = "instagrain-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/insta.*-minio.*"
+    target_label  = "service"
+    replacement   = "instagrain-minio"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/sribia.*-web-.*"
+    target_label  = "service"
+    replacement   = "sribia"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/sribia.*-db-.*"
+    target_label  = "service"
+    replacement   = "sribia-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/mooncraft"
+    target_label  = "service"
+    replacement   = "mooncraft"
+  }
+}
+
+loki.source.docker "containers" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.containers.output
+  forward_to = [loki.write.local.receiver]
+  refresh_interval = "30s"
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+// =============================================================================
+// TRACES — receive OTLP from apps, batch, ship to Tempo
+// =============================================================================
+
+otelcol.receiver.otlp "default" {
+  grpc { endpoint = "0.0.0.0:4317" }
+  http { endpoint = "0.0.0.0:4318" }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+otelcol.processor.batch "default" {
+  output {
+    traces = [otelcol.exporter.otlp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlp "tempo" {
+  client {
+    endpoint = "tempo:4317"
+    tls { insecure = true }
+  }
+}
+
+// =============================================================================
+// METRICS — cAdvisor (container) + Blackbox (HTTP probes)
+// Prometheus scrapes Alloy's /metrics endpoints for these.
+// =============================================================================
+
+prometheus.exporter.cadvisor "containers" {
+  docker_host = "unix:///var/run/docker.sock"
+  storage_duration = "5m"
+}
+
+prometheus.scrape "cadvisor" {
+  targets    = prometheus.exporter.cadvisor.containers.targets
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "30s"
+}
+
+prometheus.exporter.blackbox "public_http" {
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } } } }"
+
+  target {
+    name    = "mooncraft"
+    address = "https://mooncraft.melinakrzemowa.pl"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "sribia"
+    address = "https://sribia.melinakrzemowa.pl"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "instagrain"
+    address = "https://insta.melinakrzemowa.pl"
+    module  = "http_2xx"
+  }
+  target {
+    name    = "monitoring"
+    address = "https://monitoring.melinakrzemowa.pl"
+    module  = "http_2xx"
+  }
+}
+
+prometheus.scrape "blackbox" {
+  targets    = prometheus.exporter.blackbox.public_http.targets
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "60s"
+  scrape_timeout  = "10s"
+}
+
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}

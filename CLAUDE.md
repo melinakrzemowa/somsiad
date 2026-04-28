@@ -1,0 +1,45 @@
+# somsiad — agent notes
+
+This repo holds the monitoring stack deployed to `ssh air` at `monitoring.melinakrzemowa.pl`. Goal: low-effort observability for the user's three personal services.
+
+## What this stack is
+
+Grafana + Prometheus + Loki + Tempo + Alloy in one `docker-compose.yml`. Single-host. Single tenant. No HA. Filesystem storage for everything.
+
+`alloy/config.alloy` is the integration point — it does *all* of the following so apps don't need a per-service agent:
+- Tails docker container stdout/stderr → Loki (`loki.source.docker`)
+- Receives OTLP traces on `127.0.0.1:4317/4318` → Tempo
+- Runs cAdvisor exporter → Prometheus (via `prometheus.remote_write`)
+- Runs blackbox HTTP probes for the public hostnames → Prometheus
+
+Prometheus also scrapes Phoenix `/metrics` directly (via `host.docker.internal:<port>`) for `prom_ex` data.
+
+## Deploy model
+
+Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
+- `.github/workflows/deploy.yml` rsyncs configs to `/Users/kelu/services/monitoring.melinakrzemowa.pl/` over a cloudflared SSH proxy and `docker compose up -d` there.
+- `.env` lives **only** on the host (gitignored). Holds Grafana admin password, SMTP credentials, alert recipient list.
+- This stack does *not* build its own image — it consumes upstream Grafana/Prom/Loki/Tempo/Alloy images straight from Docker Hub. Versions are pinned in `docker-compose.yml`.
+
+## Conventions
+
+- **Adding a new monitored service:** add a `target` block in `alloy/config.alloy`, add a `discovery.relabel.containers` rule for the `service` label, optionally add a Prometheus scrape job. Don't sprinkle service-specific config in Grafana — use dashboard variables instead.
+- **Alert rules** live in `prometheus/alerts.yml` (NOT in Grafana provisioning). Grafana picks them up via the Prometheus datasource. This keeps "rules as code" — pure YAML, diffable, no UI clicks needed.
+- **Dashboards** are JSON in `grafana/dashboards/`. Provisioned read+write (allowUiUpdates: true) — you can edit in the UI then "Save JSON to file" back into the repo.
+- **Secrets** never go in committed files. `.env.example` documents the variable names; real values go on the host's `.env`. If an agent needs to test SMTP, ask the user — don't try to recover the password from chat history or memory.
+
+## Things to remember
+
+- The Air runs Colima → Docker. `host.docker.internal` works *inside containers* and points at the Colima VM's host (i.e. the Air's loopback). That's how Prometheus reaches the Phoenix apps' ports.
+- `/var/run/docker.sock` works inside containers thanks to Colima's standard symlink. Alloy and cAdvisor both rely on it.
+- The OTLP ports (4317/4318) are bound to `127.0.0.1` only — apps reach them via `host.docker.internal`, never publicly.
+- Cloudflare Access (Zero Trust) is the auth wall. Grafana admin login is fallback.
+- The user's email memory says they're at `bartosz.kalinowski@geeksoft.pl` (work). The alert recipient is `kelostrada@gmail.com` (personal) — don't conflate these.
+- Git remote here is `kelostrada/somsiad` (personal account). Use `git@github.com-kelostrada:kelostrada/somsiad.git` for the URL — work-account SSH key won't have push rights.
+
+## What this stack deliberately does *not* do
+
+- Host-level macOS metrics (memory pressure, disk I/O, thermal throttling). Inside the Colima VM we can't see them. To add: brew install `node_exporter` on macOS, expose on `:9100`, add a Prometheus scrape for `host.docker.internal:9100`.
+- Long-term metrics retention. 30d Prometheus, 30d Loki, 7d Tempo. Plenty for a personal stack.
+- High availability. One process per component. If the Air dies, monitoring dies. Acceptable trade-off here.
+- Synthetic checks beyond HTTP 2xx. If you need login flows or DB-driven probes, add a separate Playwright/probe service later.

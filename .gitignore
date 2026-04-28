@@ -1,0 +1,5 @@
+.env
+.env.local
+*.local
+volumes/
+.DS_Store

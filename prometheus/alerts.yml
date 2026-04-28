@@ -1,0 +1,68 @@
+groups:
+  - name: uptime
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        # probe_success comes from blackbox; the metric name is rewritten by Alloy.
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.target }} is down"
+          description: "HTTP probe to {{ $labels.target }} has failed for 2+ minutes."
+
+      - alert: PhoenixScrapeDown
+        # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the
+        # app is down — either way, investigate).
+        expr: up{job=~"instagrain|sribia"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} /metrics unreachable"
+          description: "Prometheus cannot scrape {{ $labels.job }} on {{ $labels.instance }}."
+
+  - name: containers
+    interval: 30s
+    rules:
+      - alert: ContainerRestartLoop
+        expr: increase(container_last_seen[10m]) == 0 and rate(container_cpu_usage_seconds_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} appears stuck"
+          description: "Container has not made progress for 5+ minutes."
+
+      - alert: HighContainerMemory
+        # cAdvisor exposes container_memory_usage_bytes / container_spec_memory_limit_bytes.
+        # Alert when a container is above 90% of its limit (only fires if a limit is set).
+        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9 and container_spec_memory_limit_bytes > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} >90% memory"
+          description: "Memory usage on container {{ $labels.name }} has been above 90% for 10m."
+
+  - name: phoenix
+    interval: 1m
+    rules:
+      - alert: PhoenixHighErrorRate
+        # prom_ex exposes phoenix_endpoint_stop_duration_seconds_count with status_class label.
+        # Fire if 5xx rate is > 5% over the last 10 minutes and at least 10 reqs/min.
+        expr: |
+          (
+            sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count{status_class="500"}[10m]))
+            /
+            sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count[10m]))
+          ) > 0.05
+          and
+          sum by (job) (rate(phoenix_endpoint_stop_duration_seconds_count[10m])) > 10/60
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.job }} 5xx rate >5%"
+          description: "Phoenix app {{ $labels.job }} has been returning 5xx for >5% of requests over 10m."

@@ -1,0 +1,57 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cloudflared
+        run: |
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb
+          sudo dpkg -i cloudflared.deb
+
+      - name: Setup SSH key and config
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          cat >> ~/.ssh/config << 'EOF'
+          Host airssh.melinakrzemowa.pl
+            ProxyCommand cloudflared access ssh --hostname %h
+            StrictHostKeyChecking no
+            UserKnownHostsFile /dev/null
+          EOF
+
+      - name: Sync configs and (re)start stack
+        run: |
+          DEPLOY_DIR=/Users/${{ secrets.SSH_USERNAME }}/services/monitoring.melinakrzemowa.pl
+          SSH_TARGET=${{ secrets.SSH_USERNAME }}@airssh.melinakrzemowa.pl
+
+          # Make sure target dir exists.
+          ssh $SSH_TARGET "mkdir -p $DEPLOY_DIR"
+
+          # Sync everything except .env (lives only on the host) and .git/CI noise.
+          rsync -az --delete \
+            --exclude='.env' --exclude='.env.local' \
+            --exclude='.git' --exclude='.github' \
+            --exclude='volumes' --exclude='.DS_Store' \
+            -e "ssh" \
+            ./ $SSH_TARGET:$DEPLOY_DIR/
+
+          # Pull any updated images and restart.
+          ssh $SSH_TARGET << 'DEPLOY'
+            set -e
+            cd /Users/${{ secrets.SSH_USERNAME }}/services/monitoring.melinakrzemowa.pl
+            test -f .env || { echo "ERROR: .env missing on host. Create it from .env.example."; exit 1; }
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker compose ps
+          DEPLOY

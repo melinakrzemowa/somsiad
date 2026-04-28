@@ -1,0 +1,100 @@
+services:
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+
+  loki:
+    image: grafana/loki:3.3.2
+    restart: unless-stopped
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ./loki:/etc/loki:ro
+      - loki_data:/loki
+    expose:
+      - "3100"
+
+  tempo:
+    image: grafana/tempo:2.7.0
+    restart: unless-stopped
+    command: -config.file=/etc/tempo/tempo.yml
+    volumes:
+      - ./tempo:/etc/tempo:ro
+      - tempo_data:/var/tempo
+    expose:
+      - "3200"
+      - "4317"
+      - "4318"
+
+  alloy:
+    image: grafana/alloy:v1.5.1
+    restart: unless-stopped
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./alloy:/etc/alloy:ro
+      - alloy_data:/var/lib/alloy/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /:/rootfs:ro,rslave
+    ports:
+      # OTLP from apps (host.docker.internal:4317/4318) — only bind loopback,
+      # cloudflared doesn't expose these.
+      - "127.0.0.1:4317:4317"
+      - "127.0.0.1:4318:4318"
+    expose:
+      - "12345"
+    depends_on:
+      - loki
+      - tempo
+      - prometheus
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GF_SECURITY_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: ${GF_SERVER_ROOT_URL}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      # SMTP (used by unified alerting email contact point)
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${SMTP_HOST}:${SMTP_PORT}
+      GF_SMTP_USER: ${SMTP_USER}
+      GF_SMTP_PASSWORD: ${SMTP_PASSWORD}
+      GF_SMTP_FROM_ADDRESS: ${SMTP_FROM_ADDRESS}
+      GF_SMTP_FROM_NAME: ${SMTP_FROM_NAME}
+      # SSL on 465 needs startTLS off + identity verified
+      GF_SMTP_STARTTLS_POLICY: NoStartTLS
+      # Surface alert recipient list to provisioning via env var expansion
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO}
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+volumes:
+  prometheus_data:
+  loki_data:
+  tempo_data:
+  alloy_data:
+  grafana_data:
