@@ -60,17 +60,23 @@ services:
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
+    # Colima's Docker uses the `overlayfs` storage driver (not overlay2)
+    # with a non-standard /var/lib/docker layout: no `image/` subdir.
+    # cAdvisor's disk/storage instrumentation reads that layerdb path and
+    # fails, which causes per-container series to be dropped. We mount
+    # only what's strictly needed and disable the metrics that require
+    # the missing layerdb. Per-container CPU/memory/network/fs metrics
+    # come from the cgroup tree directly.
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     command:
       - --housekeeping_interval=30s
-      - --docker_only=true
       - --store_container_labels=false
       - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+      - --disable_metrics=referenced_memory,cpu_topology,resctrl,udp,advtcp,sched,hugetlb,disk
     expose:
       - "8080"
 
