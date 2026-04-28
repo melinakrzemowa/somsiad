@@ -38,11 +38,19 @@ jobs:
           # Make sure target dir exists.
           ssh $SSH_TARGET "mkdir -p $DEPLOY_DIR"
 
-          # Sync everything except .env (lives only on the host) and .git/CI noise.
+          # Sync everything except host-only secret files. --exclude with
+          # --delete also protects matched paths from being removed on the
+          # destination, so files listed here survive across deploys.
           rsync -az --delete \
             --exclude='.env' --exclude='.env.local' \
             --exclude='.git' --exclude='.github' \
             --exclude='volumes' --exclude='.DS_Store' \
+            --exclude='alertmanager/smtp_password' \
+            --exclude='scripts/last_run.html' \
+            --exclude='scripts/last_run.txt' \
+            --exclude='scripts/last_run.log' \
+            --exclude='scripts/launchd.out.log' \
+            --exclude='scripts/launchd.err.log' \
             -e "ssh" \
             ./ $SSH_TARGET:$DEPLOY_DIR/
 
