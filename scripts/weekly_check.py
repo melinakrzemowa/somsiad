@@ -214,12 +214,32 @@ def collect_silences() -> list[dict]:
     return rows
 
 
+def _parse_mem_string(s: str) -> float:
+    """Parse '203.7MiB' / '5.772GiB' / '1.0KiB' -> MiB."""
+    try:
+        x = s.strip()
+        n = float("".join(ch for ch in x if ch.isdigit() or ch == "."))
+        unit = x.rstrip(" 0123456789.")
+        mult = {"KiB": 1 / 1024, "MiB": 1, "GiB": 1024, "TiB": 1024 * 1024,
+                "B": 1 / (1024 * 1024)}.get(unit, 1)
+        return n * mult
+    except Exception:
+        return 0.0
+
+
 def collect_host_resources() -> dict:
-    # Memory % from vm_stat. Apple's pages-occupied-by-compressor still counts
-    # as "in use" from the user's perspective.
+    # ---- macOS host memory (from vm_stat) ----
+    # Apple page size is 16384 on Apple Silicon.
     vm = sh("vm_stat")
     pages: dict[str, int] = {}
+    page_size = 16384
     for line in vm.splitlines():
+        if "page size of" in line:
+            # "Mach Virtual Memory Statistics: (page size of 16384 bytes)"
+            try:
+                page_size = int(line.split("page size of")[1].split()[0])
+            except Exception:
+                pass
         if ":" not in line:
             continue
         k, v = line.split(":", 1)
@@ -233,11 +253,12 @@ def collect_host_resources() -> dict:
     inactive = pages.get("Pages inactive", 0)
     wired = pages.get("Pages wired down", 0)
     comp = pages.get("Pages occupied by compressor", 0)
-    used = active + wired + comp
-    total = free + active + inactive + wired + comp
-    mem_pct = round(used * 100 / total) if total else None
+    bytes_per_page = page_size
+    host_used_mib = (active + wired + comp) * bytes_per_page / (1024 * 1024)
+    host_total_mib = (free + active + inactive + wired + comp) * bytes_per_page / (1024 * 1024)
+    host_mem_pct = round(host_used_mib * 100 / host_total_mib) if host_total_mib else None
 
-    # Disk
+    # ---- Disk ----
     disk = sh("df", "-h", "/").splitlines()
     disk_row = {}
     if len(disk) >= 2:
@@ -245,32 +266,71 @@ def collect_host_resources() -> dict:
         if len(cols) >= 5:
             disk_row = {"used": cols[2], "total": cols[1], "pct": cols[4]}
 
-    # Per-container CPU/RAM (sorted by mem desc)
+    # ---- Per-container CPU/RAM (sorted by mem desc) ----
     out = sh("docker", "stats", "--no-stream",
-             "--format", "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}")
+             "--format", "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}")
     containers = []
     for line in out.strip().split("\n"):
         if not line:
             continue
         parts = line.split("|")
         if len(parts) >= 3:
-            containers.append({"name": parts[0], "cpu": parts[1], "mem": parts[2]})
+            containers.append({
+                "name": parts[0],
+                "cpu": parts[1],
+                "mem": parts[2],
+                "mem_pct": parts[3] if len(parts) > 3 else "",
+            })
 
-    def mem_mib(c):
-        # MemUsage is e.g. "203.7MiB / 5.772GiB"
+    def mem_used_mib(c) -> float:
+        return _parse_mem_string(c["mem"].split("/")[0])
+
+    def mem_limit_mib(c) -> float:
+        parts = c["mem"].split("/")
+        return _parse_mem_string(parts[1]) if len(parts) > 1 else 0.0
+
+    containers.sort(key=mem_used_mib, reverse=True)
+
+    # ---- Docker VM memory (Colima VM) ----
+    # Sum of containers + reported limit. Colima VM total comes from any
+    # container's MemUsage limit field (all containers see the same VM).
+    vm_total_mib = max((mem_limit_mib(c) for c in containers), default=0.0)
+    vm_used_mib = sum(mem_used_mib(c) for c in containers)
+    vm_pct = round(vm_used_mib * 100 / vm_total_mib) if vm_total_mib else None
+
+    # ---- Top macOS processes (host, NOT inside the VM) ----
+    # `ps -axo` reports RSS in 1KB units. The Colima Virtualization.framework
+    # XPC process represents the entire VM as one process from macOS's view.
+    ps_out = sh("ps", "-axo", "pid,user,rss,comm")
+    procs = []
+    for line in ps_out.splitlines()[1:]:
+        parts = line.split(None, 3)
+        if len(parts) < 4:
+            continue
         try:
-            x = c["mem"].split("/")[0].strip()
-            n = float("".join(ch for ch in x if ch.isdigit() or ch == "."))
-            unit = x.rstrip(" 0123456789.")
-            mult = {"KiB": 1/1024, "MiB": 1, "GiB": 1024, "TiB": 1024*1024}.get(unit, 1)
-            return n * mult
-        except Exception:
-            return 0
+            rss_kb = int(parts[2])
+        except ValueError:
+            continue
+        if rss_kb < 30 * 1024:
+            continue
+        comm = parts[3]
+        # Friendly label = last path segment, capped.
+        label = comm.split("/")[-1].split(".")[0] or comm
+        if "Virtualization.VirtualMachine" in comm:
+            label = "Colima VM (Docker)"
+        procs.append({"label": label, "user": parts[1], "rss_mib": rss_kb / 1024})
+    procs.sort(key=lambda p: p["rss_mib"], reverse=True)
 
-    containers.sort(key=mem_mib, reverse=True)
     return {
-        "mem_pct": mem_pct, "disk": disk_row,
+        "host_mem_pct": host_mem_pct,
+        "host_used_mib": host_used_mib,
+        "host_total_mib": host_total_mib,
+        "vm_pct": vm_pct,
+        "vm_used_mib": vm_used_mib,
+        "vm_total_mib": vm_total_mib,
+        "disk": disk_row,
         "containers": containers,
+        "top_host_procs": procs[:7],
     }
 
 
@@ -383,9 +443,9 @@ def html_report(report: dict, warns: list[str]) -> str:
         ("Containers", f'{n_up}/{n_total} up'),
         ("Probes", f"{n_probe_ok}/{n_probe} 2xx/3xx"),
         ("Alerts (7d)", f"{n_alerts} fired" if n_alerts else "0 fired"),
-        ("Memory", f'{report["host"]["mem_pct"]}%' if report["host"]["mem_pct"] is not None else "—"),
+        ("Docker", f'{report["host"]["vm_pct"]}%' if report["host"]["vm_pct"] is not None else "—"),
+        ("Host", f'{report["host"]["host_mem_pct"]}%' if report["host"]["host_mem_pct"] is not None else "—"),
         ("Disk", report["host"]["disk"].get("pct", "—")),
-        ("node_exporter", "ok" if report["node_exporter"]["ok"] else f"err ({report['node_exporter']['code']})"),
     ]
     tldr_html = (
         '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" '
@@ -513,11 +573,10 @@ def html_report(report: dict, warns: list[str]) -> str:
     else:
         silences_card = ""
 
-    # ---- Host resources ----
-    mem_pct = report["host"]["mem_pct"]
-    disk = report["host"]["disk"]
+    # ---- Host resources (split into Docker VM + macOS host) ----
+    h = report["host"]
 
-    def bar(pct: int, color: str = "#0969da") -> str:
+    def bar(pct, color: str = "#0969da") -> str:
         if pct is None:
             return "—"
         pct = max(0, min(100, int(pct)))
@@ -526,52 +585,105 @@ def html_report(report: dict, warns: list[str]) -> str:
             f'<div style="background:{color};height:8px;width:{pct}%;"></div></div>'
         )
 
-    mem_color = "#1a7f37" if (mem_pct or 0) < 70 else "#9a6700" if (mem_pct or 0) < 85 else "#d1242f"
-    disk_pct_str = disk.get("pct", "0%").rstrip("%")
+    def mem_color_for(pct):
+        p = pct or 0
+        return "#1a7f37" if p < 70 else "#9a6700" if p < 85 else "#d1242f"
+
+    def gib(mib):
+        return f"{mib / 1024:.2f} GiB" if mib else "—"
+
+    # Disk percentage
+    disk_pct_str = h["disk"].get("pct", "0%").rstrip("%")
     try:
         disk_int = int(disk_pct_str)
     except ValueError:
         disk_int = 0
-    disk_color = "#1a7f37" if disk_int < 70 else "#9a6700" if disk_int < 85 else "#d1242f"
 
-    host_summary_html = (
-        '<table role="presentation" cellspacing="0" cellpadding="0" width="100%" '
-        'style="border-collapse:collapse;margin-bottom:16px;">'
-        '<tr>'
-        '<td style="padding:0 12px 0 0;width:50%;vertical-align:top;">'
-        '<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
-        'letter-spacing:0.04em;font-weight:600;margin-bottom:6px;">Memory</div>'
-        f'<div style="font-size:20px;font-weight:600;color:#1f2328;margin-bottom:6px;">'
-        f'{mem_pct if mem_pct is not None else "—"}%</div>'
-        f'{bar(mem_pct, mem_color)}'
-        '</td>'
-        '<td style="padding:0 0 0 12px;width:50%;vertical-align:top;">'
-        '<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
-        'letter-spacing:0.04em;font-weight:600;margin-bottom:6px;">Disk</div>'
-        f'<div style="font-size:20px;font-weight:600;color:#1f2328;margin-bottom:6px;">'
-        f'{escape(disk.get("pct", "—"))}</div>'
-        f'<div style="font-size:12px;color:#656d76;margin-bottom:6px;">'
-        f'{escape(disk.get("used", "?"))} of {escape(disk.get("total", "?"))}</div>'
-        f'{bar(disk_int, disk_color)}'
-        '</td>'
-        '</tr></table>'
+    # Three stat tiles: Docker VM, macOS host, Disk.
+    def stat_tile(label, big, sub, pct, color):
+        return (
+            '<td style="padding:12px;width:33%;vertical-align:top;'
+            'border:1px solid #d0d7de;border-radius:8px;">'
+            '<div style="font-size:11px;color:#656d76;text-transform:uppercase;'
+            'letter-spacing:0.04em;font-weight:600;margin-bottom:8px;">'
+            f'{escape(label)}</div>'
+            f'<div style="font-size:22px;font-weight:600;color:#1f2328;'
+            f'line-height:1.2;">{escape(big)}</div>'
+            f'<div style="font-size:12px;color:#656d76;margin:4px 0 8px 0;">'
+            f'{escape(sub)}</div>'
+            f"{bar(pct, color)}"
+            "</td>"
+        )
+
+    docker_sub = (
+        f'{gib(h["vm_used_mib"])} of {gib(h["vm_total_mib"])}'
+        if h["vm_total_mib"] else "no data"
+    )
+    host_sub = (
+        f'{gib(h["host_used_mib"])} of {gib(h["host_total_mib"])}'
+        if h["host_total_mib"] else "no data"
     )
 
+    host_summary_html = (
+        '<table role="presentation" cellspacing="8" cellpadding="0" width="100%" '
+        'style="border-collapse:separate;border-spacing:8px 0;margin-bottom:16px;">'
+        '<tr>'
+        + stat_tile(
+            "Docker VM",
+            f'{h["vm_pct"]}%' if h["vm_pct"] is not None else "—",
+            docker_sub,
+            h["vm_pct"],
+            mem_color_for(h["vm_pct"]),
+        )
+        + stat_tile(
+            "macOS host",
+            f'{h["host_mem_pct"]}%' if h["host_mem_pct"] is not None else "—",
+            host_sub,
+            h["host_mem_pct"],
+            mem_color_for(h["host_mem_pct"]),
+        )
+        + stat_tile(
+            "Disk",
+            h["disk"].get("pct", "—"),
+            f'{h["disk"].get("used", "?")} of {h["disk"].get("total", "?")}',
+            disk_int,
+            mem_color_for(disk_int),
+        )
+        + "</tr></table>"
+    )
+
+    # Per-container memory table (Docker VM allocation usage).
     cont_stat_rows = []
-    for c in report["host"]["containers"][:10]:
+    for c in h["containers"][:12]:
+        mem_used_part = c["mem"].split("/")[0].strip()
         cont_stat_rows.append([
             f'<span style="font-family:ui-monospace,monospace;">{escape(c["name"])}</span>',
             f'<span style="font-family:ui-monospace,monospace;color:#656d76;">{escape(c["cpu"])}</span>',
-            f'<span style="font-family:ui-monospace,monospace;color:#656d76;">{escape(c["mem"])}</span>',
+            f'<span style="font-family:ui-monospace,monospace;">{escape(mem_used_part)}</span>',
         ])
+
+    # macOS host top processes (everything OUTSIDE the Colima VM,
+    # plus the VM itself as a single line).
+    proc_rows = []
+    for p in h["top_host_procs"]:
+        proc_rows.append([
+            f'<span style="font-family:ui-monospace,monospace;">{escape(p["label"])}</span>',
+            f'<span style="color:#656d76;font-size:13px;">{escape(p["user"])}</span>',
+            f'<span style="font-family:ui-monospace,monospace;">{p["rss_mib"]:.0f} MiB</span>',
+        ])
+
     host_card = (
         f'<div style="{css_card}">'
-        f'<h2 style="{css_h2}">Host resources</h2>'
+        f'<h2 style="{css_h2}">Resources</h2>'
         + host_summary_html
         + '<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
         'letter-spacing:0.04em;font-weight:600;margin:8px 0 6px 0;">'
-        'Top containers (by RAM)</div>'
+        'Containers (Docker VM, sorted by RAM)</div>'
         + table(["name", "cpu", "memory"], cont_stat_rows)
+        + '<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
+        'letter-spacing:0.04em;font-weight:600;margin:16px 0 6px 0;">'
+        'Top macOS processes (host, outside the VM)</div>'
+        + table(["process", "user", "rss"], proc_rows)
         + "</div>"
     )
 
@@ -695,14 +807,26 @@ def text_report(report: dict, warns: list[str]) -> str:
         lines.append("")
 
     h = report["host"]
-    lines.append("HOST")
-    lines.append(f"  Memory: {h['mem_pct']}%")
+    lines.append("RESOURCES")
+
+    def gib(mib):
+        return f"{mib / 1024:.2f} GiB" if mib else "—"
+
+    lines.append(f"  Docker VM:  {h['vm_pct']}% ({gib(h['vm_used_mib'])} of {gib(h['vm_total_mib'])})")
+    lines.append(f"  macOS host: {h['host_mem_pct']}% ({gib(h['host_used_mib'])} of {gib(h['host_total_mib'])})")
     if h["disk"]:
-        lines.append(f"  Disk:   {h['disk'].get('pct','?')} ({h['disk'].get('used','?')} of {h['disk'].get('total','?')})")
+        lines.append(
+            f"  Disk:       {h['disk'].get('pct','?')} "
+            f"({h['disk'].get('used','?')} of {h['disk'].get('total','?')})"
+        )
     lines.append("")
-    lines.append("TOP CONTAINERS (by RAM)")
-    for c in h["containers"][:10]:
+    lines.append("CONTAINERS (Docker VM, by RAM)")
+    for c in h["containers"][:12]:
         lines.append(f"  {c['name']:<46} cpu {c['cpu']:>7}  mem {c['mem']}")
+    lines.append("")
+    lines.append("TOP macOS PROCESSES (outside the VM)")
+    for p in h["top_host_procs"]:
+        lines.append(f"  {p['label']:<32} {p['user']:<12} {p['rss_mib']:>5.0f} MiB")
     lines.append("")
 
     ne = report["node_exporter"]
