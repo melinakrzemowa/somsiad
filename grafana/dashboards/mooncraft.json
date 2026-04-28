@@ -14,7 +14,7 @@
       "title": "Status",
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_success{name=\"mooncraft\"}", "refId": "A" }],
+      "targets": [{ "expr": "probe_success{target=\"mooncraft\"}", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -31,7 +31,7 @@
       "title": "Probe latency",
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{name=\"mooncraft\"}", "refId": "A" }],
+      "targets": [{ "expr": "probe_duration_seconds{target=\"mooncraft\"}", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
@@ -40,7 +40,7 @@
       "title": "TLS cert expiry",
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "(probe_ssl_earliest_cert_expiry{name=\"mooncraft\"} - time()) / 86400", "refId": "A" }],
+      "targets": [{ "expr": "(probe_ssl_earliest_cert_expiry{target=\"mooncraft\"} - time()) / 86400", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "unit": "days",
@@ -58,7 +58,7 @@
       "title": "Probe latency over time",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{name=\"mooncraft\"}", "legendFormat": "duration", "refId": "A" }],
+      "targets": [{ "expr": "probe_duration_seconds{target=\"mooncraft\"}", "legendFormat": "duration", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {

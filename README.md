@@ -4,7 +4,7 @@ Single-host observability stack for the services on the MacBook Air (`ssh air`).
 
 > *somsiad* — neighbour, in Polish. He keeps an eye on things.
 
-**Stack:** Grafana 11 · Prometheus 3 · Loki 3 · Tempo 2 · Grafana Alloy 1.
+**Stack:** Grafana 11 · Prometheus 3 · Alertmanager 0.28 · Loki 3 · Tempo 2 · Grafana Alloy 1.
 
 ## What it watches
 
@@ -21,10 +21,13 @@ Public endpoints are probed every 60s via Alloy's blackbox exporter. Container m
 
 ```
 docker-compose.yml             # the stack
-.env.example                   # secrets template — copy to .env on the host
+.env.example                   # config template — copy to .env on the host (no SMTP secrets)
 prometheus/
-  prometheus.yml               # scrape jobs + alert rules ref
+  prometheus.yml               # scrape jobs + alert rules ref + alertmanager target
   alerts.yml                   # uptime / phoenix / container alert rules
+alertmanager/
+  alertmanager.yml             # email routing, hardcoded recipient, password-from-file
+  smtp_password                # gitignored, lives only on the host (mode 600)
 loki/loki-config.yml           # filesystem store, 30d retention
 tempo/tempo.yml                # filesystem store, 7d retention
 alloy/config.alloy             # log collection + OTLP receiver + cAdvisor + blackbox
@@ -32,8 +35,6 @@ grafana/
   provisioning/
     datasources/datasources.yml
     dashboards/dashboards.yml
-    alerting/contact-points.yml      # email contact point (SMTP from env)
-    alerting/notification-policies.yml
   dashboards/
     overview.json              # all services at a glance
     phoenix.json               # parameterised Phoenix dashboard
@@ -46,12 +47,21 @@ grafana/
 These steps run once. They're not in CI because they touch CF Tunnel and the host filesystem.
 
 1. **SSH in:** `ssh air`.
-2. **Create deploy dir & .env:**
+2. **Create deploy dir, `.env`, and SMTP password file:**
    ```sh
-   mkdir -p ~/services/monitoring.melinakrzemowa.pl
+   mkdir -p ~/services/monitoring.melinakrzemowa.pl/alertmanager
    cd ~/services/monitoring.melinakrzemowa.pl
-   # Copy .env.example from the repo and fill in real secrets:
-   #   GF_SECURITY_ADMIN_PASSWORD, SMTP_PASSWORD, ALERT_EMAIL_TO
+
+   # 1. Copy .env.example to .env, fill in GF_SECURITY_ADMIN_PASSWORD,
+   #    SMTP_PASSWORD, ALERT_EMAIL_TO. (.env is mounted into Grafana for
+   #    optional Grafana-managed alerting; Alertmanager doesn't read it.)
+   chmod 600 .env
+
+   # 2. Write the SMTP password (no trailing newline) to a separate file
+   #    that Alertmanager reads via auth_password_file. This is mounted
+   #    read-only into the alertmanager container.
+   printf '%s' 'YOUR-SMTP-PASSWORD' > alertmanager/smtp_password
+   chmod 600 alertmanager/smtp_password
    ```
 3. **Add the Cloudflare Tunnel route.** On the Air:
    ```sh
@@ -130,7 +140,9 @@ Nothing to do — uptime and HTTP latency come from the blackbox probe, and ngin
 
 ## Alerts
 
-Defined in `prometheus/alerts.yml`. They evaluate every 30s in Prometheus, and Grafana's unified alerting forwards firing alerts to the `email-default` contact point. The recipient list is `${ALERT_EMAIL_TO}` from `.env` (comma-separated for multiple addresses).
+Defined in `prometheus/alerts.yml`. They evaluate every 30s in Prometheus, which forwards firing alerts to Alertmanager (`alertmanager:9093`). Alertmanager groups, dedups, and routes them to the email receiver configured in `alertmanager/alertmanager.yml`.
+
+The recipient is hardcoded (`kelostrada@gmail.com`) and the SMTP credentials are server/from in `alertmanager.yml` plus a separate `alertmanager/smtp_password` file (gitignored, mode 600). To add a recipient, edit `alertmanager.yml` and redeploy.
 
 Default rules:
 - **ServiceDown** — any blackbox probe failing for 2m → critical
@@ -159,8 +171,9 @@ Measured RSS on the Air after ~24h of warmup with normal traffic:
 | Loki | ~150 MB | filesystem, 30d retention |
 | Tempo | ~120 MB | filesystem, 7d retention |
 | Alloy | ~120 MB | logs+metrics+traces collector |
-| Grafana | ~100 MB | UI + alerting |
-| **Total** | **~700 MB** | inside the ~5.7 GiB Colima VM |
+| Grafana | ~100 MB | UI |
+| Alertmanager | ~30 MB | SMTP routing |
+| **Total** | **~720 MB** | inside the ~5.7 GiB Colima VM |
 
 If you ever feel cramped, the cheapest wins are: lower retention, drop Tempo (don't need traces every day), or replace Loki with `grafana/loki:3.3.2` in single-binary `target=all` (already the default here).
 

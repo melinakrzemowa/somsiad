@@ -129,21 +129,25 @@ prometheus.exporter.blackbox "public_http" {
     name    = "mooncraft"
     address = "https://mooncraft.melinakrzemowa.pl"
     module  = "http_2xx"
+    labels  = { target = "mooncraft" }
   }
   target {
     name    = "sribia"
     address = "https://sribia.melinakrzemowa.pl"
     module  = "http_2xx"
+    labels  = { target = "sribia" }
   }
   target {
     name    = "instagrain"
     address = "https://insta.melinakrzemowa.pl"
     module  = "http_2xx"
+    labels  = { target = "instagrain" }
   }
   target {
     name    = "monitoring"
     address = "https://monitoring.melinakrzemowa.pl"
     module  = "http_2xx"
+    labels  = { target = "monitoring" }
   }
 }
 

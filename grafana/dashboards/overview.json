@@ -15,7 +15,7 @@
       "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "probe_success", "legendFormat": "{{name}}", "refId": "A" }
+        { "expr": "probe_success", "legendFormat": "{{target}}", "refId": "A" }
       ],
       "fieldConfig": {
         "defaults": {
@@ -38,7 +38,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
-        { "expr": "probe_duration_seconds", "legendFormat": "{{name}}", "refId": "A" }
+        { "expr": "probe_duration_seconds", "legendFormat": "{{target}}", "refId": "A" }
       ],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
@@ -51,7 +51,7 @@
       "targets": [
         {
           "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[2m]))",
-          "legendFormat": "{{name}}",
+          "legendFormat": "{{target}}",
           "refId": "A"
         }
       ]
@@ -65,7 +65,7 @@
       "targets": [
         {
           "expr": "container_memory_usage_bytes{name!=\"\"} / 1024 / 1024",
-          "legendFormat": "{{name}}",
+          "legendFormat": "{{target}}",
           "refId": "A"
         }
       ],

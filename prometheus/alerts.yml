@@ -3,7 +3,7 @@ groups:
     interval: 30s
     rules:
       - alert: ServiceDown
-        # probe_success comes from blackbox; the metric name is rewritten by Alloy.
+        # probe_success comes from blackbox; the `target` label is added in alloy/config.alloy.
         expr: probe_success == 0
         for: 2m
         labels:

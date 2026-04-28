@@ -3,3 +3,4 @@
 *.local
 volumes/
 .DS_Store
+alertmanager/smtp_password

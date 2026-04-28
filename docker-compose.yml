@@ -13,6 +13,24 @@ services:
       - prometheus_data:/prometheus
     expose:
       - "9090"
+    depends_on:
+      - alertmanager
+
+  alertmanager:
+    image: prom/alertmanager:v0.28.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --log.level=debug
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      # Password lives in a separate file on the host (NOT in git).
+      # Created at deploy time from .env's SMTP_PASSWORD value.
+      - ./alertmanager/smtp_password:/etc/alertmanager/smtp_password:ro
+      - alertmanager_data:/alertmanager
+    expose:
+      - "9093"
 
   loki:
     image: grafana/loki:3.3.2
@@ -94,6 +112,7 @@ services:
 
 volumes:
   prometheus_data:
+  alertmanager_data:
   loki_data:
   tempo_data:
   alloy_data:

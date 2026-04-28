@@ -4,7 +4,7 @@ This repo holds the monitoring stack deployed to `ssh air` at `monitoring.melina
 
 ## What this stack is
 
-Grafana + Prometheus + Loki + Tempo + Alloy in one `docker-compose.yml`. Single-host. Single tenant. No HA. Filesystem storage for everything.
+Grafana + Prometheus + Alertmanager + Loki + Tempo + Alloy in one `docker-compose.yml`. Single-host. Single tenant. No HA. Filesystem storage for everything.
 
 `alloy/config.alloy` is the integration point — it does *all* of the following so apps don't need a per-service agent:
 - Tails docker container stdout/stderr → Loki (`loki.source.docker`)
@@ -24,7 +24,8 @@ Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
 ## Conventions
 
 - **Adding a new monitored service:** add a `target` block in `alloy/config.alloy`, add a `discovery.relabel.containers` rule for the `service` label, optionally add a Prometheus scrape job. Don't sprinkle service-specific config in Grafana — use dashboard variables instead.
-- **Alert rules** live in `prometheus/alerts.yml` (NOT in Grafana provisioning). Grafana picks them up via the Prometheus datasource. This keeps "rules as code" — pure YAML, diffable, no UI clicks needed.
+- **Alert rules** live in `prometheus/alerts.yml` (NOT in Grafana provisioning — that path was abandoned because Grafana's env-var interpolation in alerting provisioning is fragile). Prometheus evaluates the rules and forwards firing alerts to Alertmanager, which routes them to email via SMTP. This keeps "rules as code" — pure YAML, diffable, no UI clicks needed.
+- **SMTP password** is in `alertmanager/smtp_password` on the host (gitignored). Alertmanager reads it via `smtp_auth_password_file`. This is the *only* secret somsiad consumes — everything else is in committed config.
 - **Dashboards** are JSON in `grafana/dashboards/`. Provisioned read+write (allowUiUpdates: true) — you can edit in the UI then "Save JSON to file" back into the repo.
 - **Secrets** never go in committed files. `.env.example` documents the variable names; real values go on the host's `.env`. If an agent needs to test SMTP, ask the user — don't try to recover the password from chat history or memory.
 
