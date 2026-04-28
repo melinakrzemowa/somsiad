@@ -44,6 +44,12 @@ ENV_FILE = f"{DEPLOY_DIR}/.env"
 # Grafana panels to render into the email. Each panel is fetched as a PNG
 # from Grafana's image renderer and attached inline.
 WEEKLY_DASHBOARD_UID = "somsiad-weekly"
+
+# Default chart window. Bump to "now-7d" once we have a full week of data
+# (~ 2026-05-04). Until then, a 7-day window leaves most of the canvas
+# blank and the recent data is too narrow to see.
+CHART_FROM = "now-24h"
+
 RENDER_PANELS = [
     {"id": 1, "title": "Service uptime", "height": 280},
     {"id": 2, "title": "Phoenix request rate", "height": 320},
@@ -134,7 +140,7 @@ def read_env_file(path: str) -> dict[str, str]:
 
 
 def render_panel(uid: str, panel_id: int, width: int = 1100, height: int = 280,
-                 time_from: str = "now-7d", time_to: str = "now") -> bytes:
+                 time_from: str = CHART_FROM, time_to: str = "now") -> bytes:
     """Snapshot a single Grafana panel as a PNG.
 
     width=1100 produces a crisp image at the email's display width (600px)
@@ -830,9 +836,11 @@ def html_report(report: dict, warns: list[str]) -> str:
                 f'height:auto;border:1px solid #d0d7de;border-radius:6px;"/>'
                 "</div>"
             )
+        # Friendly window label, derived from CHART_FROM ("now-24h" -> "24h").
+        window_label = CHART_FROM.replace("now-", "").lstrip("-")
         charts_card = (
             f'<div style="{css_card}">'
-            f'<h2 style="{css_h2}">Charts (last 7 days)</h2>'
+            f'<h2 style="{css_h2}">Charts (last {escape(window_label)})</h2>'
             + "".join(chart_blocks)
             + '<div style="font-size:11px;color:#656d76;margin-top:8px;">'
             'Live versions: '
