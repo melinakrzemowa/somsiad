@@ -21,6 +21,13 @@ scrape_configs:
     static_configs:
       - targets: [alloy:12345]
 
+  # macOS host metrics from node_exporter (brew install node_exporter, brew services start)
+  # Bound to all interfaces on :9100; reachable from containers via host.docker.internal.
+  - job_name: host
+    static_configs:
+      - targets: [host.docker.internal:9100]
+        labels: { service: host }
+
   - job_name: loki
     static_configs:
       - targets: [loki:3100]
