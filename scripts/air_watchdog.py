@@ -34,7 +34,12 @@ from pathlib import Path
 DEPLOY_DIR = "/Users/kelu/services/monitoring.melinakrzemowa.pl"
 
 TARGET_NAME = os.environ.get("TARGET_NAME", "Raspberry Pi")
+# Try mDNS first; fall back to the LAN IP. macOS launchd-spawned processes
+# don't always have mDNS resolution available (no user session context),
+# so a static IP is required for reliability. Update if the router ever
+# reassigns it — DHCP reservation is preferred.
 TARGET_HOST = os.environ.get("TARGET_HOST", "raspberrypi.local")
+TARGET_FALLBACK_IP = os.environ.get("TARGET_FALLBACK_IP", "192.168.0.140")
 
 STATE_FILE = Path(os.environ.get(
     "STATE_FILE", f"{DEPLOY_DIR}/scripts/air_watchdog_state.json"
@@ -115,6 +120,11 @@ def send_email(subject: str, body: str) -> None:
 def main() -> int:
     state = load_state()
     ok, note = probe_icmp(TARGET_HOST)
+    # Hostname probe failed (e.g. mDNS unavailable in launchd context); try IP.
+    if not ok and TARGET_FALLBACK_IP and TARGET_FALLBACK_IP != TARGET_HOST:
+        ok2, note2 = probe_icmp(TARGET_FALLBACK_IP)
+        note = f"{note}; ip {TARGET_FALLBACK_IP}: {note2}"
+        ok = ok2
 
     if ok:
         if state.get("alert_sent"):
