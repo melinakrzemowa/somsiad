@@ -93,12 +93,11 @@ def hostname() -> str:
 
 
 def probe_https(url: str, timeout: int = PROBE_TIMEOUT_S) -> tuple[bool, str]:
-    """HEAD the URL via curl — lighter than GET, mirrors what Cloudflare
-    actually returns to a normal client. We treat ANY HTTP status as
-    'reachable' (5xx included): if Cloudflare answers at all, the edge
-    is up. Only TCP/TLS-level failure means Air or its tunnel is down.
-    Cloudflare Access returning 403 is still 'CF is up' and not an Air
-    problem, so we don't want to alert on it."""
+    """HEAD the URL via curl. Healthy = 2xx, 3xx, or 4xx (edge responded
+    correctly — 401/403 are valid CF Access challenges). 5xx means
+    Cloudflare reached the origin tier and got nothing — that's exactly
+    the failure mode we're paging on. CF's 530 / 521 / 502 / 503 / 504
+    all indicate "origin unreachable from edge"."""
     try:
         r = subprocess.run(
             ["curl", "-sI", "-o", "/dev/null", "-w", "%{http_code}",
@@ -106,9 +105,12 @@ def probe_https(url: str, timeout: int = PROBE_TIMEOUT_S) -> tuple[bool, str]:
             capture_output=True, text=True, timeout=timeout + 4,
         )
         code = (r.stdout or "").strip()
-        if code and code.isdigit() and int(code) > 0:
-            return True, f"http {code}"
-        return False, f"http error (curl exit {r.returncode})"
+        if not code or not code.isdigit() or int(code) == 0:
+            return False, f"http error (curl exit {r.returncode})"
+        n = int(code)
+        if 200 <= n < 500:
+            return True, f"http {n}"
+        return False, f"http {n}"
     except Exception as e:
         return False, f"http error: {e}"
 
