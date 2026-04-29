@@ -1,0 +1,23 @@
+[Unit]
+Description=somsiad watchdog — pings the Air, emails on failure
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/somsiad-watchdog/watchdog.py
+# Runs as root so setuid /usr/bin/ping works without capability juggling.
+# Script is small + self-contained; only writes to /var/lib/somsiad-watchdog.
+User=root
+Group=root
+
+# Hardening — keep most of it, but skip NoNewPrivileges so setuid ping works.
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK AF_PACKET
+ReadWritePaths=/var/lib/somsiad-watchdog

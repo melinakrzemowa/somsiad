@@ -113,7 +113,7 @@ otelcol.exporter.otlp "tempo" {
 // =============================================================================
 
 prometheus.exporter.blackbox "public_http" {
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } } } }"
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } }, tcp_connect: { prober: tcp, timeout: 5s } } }"
 
   target {
     name    = "mooncraft"
@@ -138,6 +138,17 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://monitoring.melinakrzemowa.pl"
     module  = "http_2xx"
     labels  = { target = "monitoring" }
+  }
+
+  // Raspberry Pi (LAN watchdog host). TCP probe on its SSH port — mDNS
+  // doesn't work from inside the Alloy container so we use the IP. If
+  // the router ever reassigns it, update here. The Pi's own watchdog
+  // emails us if the Air goes down; this probe is the reverse path.
+  target {
+    name    = "raspi"
+    address = "192.168.0.140:22"
+    module  = "tcp_connect"
+    labels  = { target = "raspi" }
   }
 }
 

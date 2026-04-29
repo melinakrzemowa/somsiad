@@ -4,13 +4,27 @@ groups:
     rules:
       - alert: ServiceDown
         # probe_success comes from blackbox; the `target` label is added in alloy/config.alloy.
-        expr: probe_success == 0
+        # Excludes raspi which has its own dedicated alert with a longer threshold,
+        # since it's the external watchdog for this stack.
+        expr: probe_success{target!="raspi"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: "{{ $labels.target }} is down"
           description: "HTTP probe to {{ $labels.target }} has failed for 2+ minutes."
+
+      - alert: RaspiDown
+        # Pi is the external watchdog. Give it a longer fuse — short LAN/WiFi
+        # blips shouldn't page since the Pi being briefly unreachable doesn't
+        # affect any user-facing service.
+        expr: probe_success{target="raspi"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Raspberry Pi (watchdog) is unreachable"
+          description: "TCP probe to raspi:22 has failed for 10+ minutes. The Pi watchdog is the external check on the Air, so its silence means we can't be paged about Air outages until it's back."
 
       - alert: PhoenixScrapeDown
         # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the
