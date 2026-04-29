@@ -70,5 +70,7 @@ jobs:
             # Best-effort: ignore errors if a service is still warming up.
             docker exec monitoringmelinakrzemowapl-prometheus-1 \
               wget -q --post-data='' http://localhost:9090/-/reload || true
+            docker exec monitoringmelinakrzemowapl-alloy-1 \
+              wget -q --post-data='' http://localhost:12345/-/reload || true
             docker kill --signal=HUP monitoringmelinakrzemowapl-alertmanager-1 || true
           DEPLOY

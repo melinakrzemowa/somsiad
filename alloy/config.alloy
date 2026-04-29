@@ -113,7 +113,7 @@ otelcol.exporter.otlp "tempo" {
 // =============================================================================
 
 prometheus.exporter.blackbox "public_http" {
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } }, tcp_connect: { prober: tcp, timeout: 5s } } }"
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } } } }"
 
   target {
     name    = "mooncraft"
@@ -140,16 +140,10 @@ prometheus.exporter.blackbox "public_http" {
     labels  = { target = "monitoring" }
   }
 
-  // Raspberry Pi (LAN watchdog host). TCP probe on its SSH port — mDNS
-  // doesn't work from inside the Alloy container so we use the IP. If
-  // the router ever reassigns it, update here. The Pi's own watchdog
-  // emails us if the Air goes down; this probe is the reverse path.
-  target {
-    name    = "raspi"
-    address = "192.168.0.140:22"
-    module  = "tcp_connect"
-    labels  = { target = "raspi" }
-  }
+  // The Pi (192.168.0.140) is NOT reached from here — Colima's Docker VM
+  // sits on a NAT subnet that can reach the internet but not LAN peers.
+  // Air → Pi reachability is checked by air-watchdog.{py,sh} via launchd
+  // running natively on macOS. See scripts/air_watchdog.py.
 }
 
 prometheus.scrape "blackbox" {
