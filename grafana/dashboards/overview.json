@@ -50,8 +50,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name!=\"\"}[2m]))",
-          "legendFormat": "{{target}}",
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{container_id!=\"\"}[2m]) * on (container_id) group_left(name) docker_container_info)",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ]
@@ -64,8 +64,8 @@
       "datasource": { "type": "prometheus", "uid": "prometheus" },
       "targets": [
         {
-          "expr": "container_memory_usage_bytes{name!=\"\"} / 1024 / 1024",
-          "legendFormat": "{{target}}",
+          "expr": "sum by (name) (container_memory_usage_bytes{container_id!=\"\"} * on (container_id) group_left(name) docker_container_info) / 1024 / 1024",
+          "legendFormat": "{{name}}",
           "refId": "A"
         }
       ],
