@@ -1,12 +1,30 @@
 {
-  "title": "Mooncraft (static)",
-  "uid": "somsiad-mooncraft",
-  "tags": ["somsiad", "mooncraft"],
+  "title": "Somsiad — Static Site",
+  "uid": "somsiad-static",
+  "tags": ["somsiad", "static"],
+  "description": "Per-site overview for the static (no-app-metrics) services. Pick a target from the dropdown.",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
   "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "type": "custom",
+        "name": "target",
+        "label": "Site",
+        "query": "mooncraft,abyss",
+        "options": [
+          { "text": "mooncraft", "value": "mooncraft", "selected": true },
+          { "text": "abyss",     "value": "abyss",     "selected": false }
+        ],
+        "current": { "text": "mooncraft", "value": "mooncraft" },
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
   "panels": [
     {
       "id": 1,
@@ -14,7 +32,7 @@
       "title": "Status",
       "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_success{target=\"mooncraft\"}", "refId": "A" }],
+      "targets": [{ "expr": "probe_success{target=\"$target\"}", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "mappings": [
@@ -31,7 +49,7 @@
       "title": "Probe latency",
       "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{target=\"mooncraft\"}", "refId": "A" }],
+      "targets": [{ "expr": "probe_duration_seconds{target=\"$target\"}", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
@@ -40,7 +58,7 @@
       "title": "TLS cert expiry",
       "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "(probe_ssl_earliest_cert_expiry{target=\"mooncraft\"} - time()) / 86400", "refId": "A" }],
+      "targets": [{ "expr": "(probe_ssl_earliest_cert_expiry{target=\"$target\"} - time()) / 86400", "refId": "A" }],
       "fieldConfig": {
         "defaults": {
           "unit": "days",
@@ -58,16 +76,16 @@
       "title": "Probe latency over time",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{target=\"mooncraft\"}", "legendFormat": "duration", "refId": "A" }],
+      "targets": [{ "expr": "probe_duration_seconds{target=\"$target\"}", "legendFormat": "duration", "refId": "A" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
       "id": 5,
       "type": "logs",
-      "title": "nginx logs",
+      "title": "Logs",
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [{ "expr": "{service=\"mooncraft\"}", "refId": "A" }],
+      "targets": [{ "expr": "{service=\"$target\"}", "refId": "A" }],
       "options": { "showTime": true, "wrapLogMessage": true }
     }
   ]
