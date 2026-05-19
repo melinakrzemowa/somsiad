@@ -63,9 +63,11 @@ PROBES = [
     ("instagrain", "https://insta.melinakrzemowa.pl"),
     ("sribia", "https://sribia.melinakrzemowa.pl/auth"),
     ("mooncraft", "https://mooncraft.melinakrzemowa.pl"),
+    ("abyss", "https://abyss.melinakrzemowa.pl"),
     ("monitoring", "https://monitoring.melinakrzemowa.pl"),
 ]
 PHOENIX_SERVICES = ["instagrain", "sribia"]
+STATIC_SERVICES = ["mooncraft", "abyss"]
 
 # All container name prefixes the report knows about. Used to order rows and
 # to tell "expected" containers from anything new that shows up.
@@ -74,6 +76,7 @@ KNOWN_PREFIXES = (
     "instamelinakrzemowapl-",
     "sribiamelinakrzemowapl-",
     "mooncraft",
+    "abyss",
 )
 
 # --- subprocess helpers -----------------------------------------------------
@@ -250,8 +253,9 @@ def collect_traces() -> list[dict]:
             rows.append({"service": svc, "ok": True, "age_s": age_s})
         else:
             rows.append({"service": svc, "ok": False, "age_s": None})
-    rows.append({"service": "mooncraft", "ok": None,
-                 "note": "static site — no traces expected"})
+    for svc in STATIC_SERVICES:
+        rows.append({"service": svc, "ok": None,
+                     "note": "static site — no traces expected"})
     return rows
 
 
