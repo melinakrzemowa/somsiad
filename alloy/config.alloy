@@ -65,6 +65,12 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "mooncraft"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/abyss"
+    target_label  = "service"
+    replacement   = "abyss"
+  }
 }
 
 loki.source.docker "containers" {
@@ -120,6 +126,12 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://mooncraft.melinakrzemowa.pl"
     module  = "http_2xx"
     labels  = { target = "mooncraft" }
+  }
+  target {
+    name    = "abyss"
+    address = "https://abyss.melinakrzemowa.pl"
+    module  = "http_2xx"
+    labels  = { target = "abyss" }
   }
   target {
     name    = "sribia"
