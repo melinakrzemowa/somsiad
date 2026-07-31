@@ -79,5 +79,9 @@ jobs:
               wget -q --post-data='' http://localhost:9090/-/reload || true
             docker exec monitoringmelinakrzemowapl-alloy-1 \
               wget -q --post-data='' http://localhost:12345/-/reload || true
-            docker kill --signal=HUP monitoringmelinakrzemowapl-alertmanager-1 || true
+            # NOT `docker kill --signal=HUP`: docker kill (any signal) marks the
+            # container "manually stopped", so restart:unless-stopped skips it on
+            # the next VM boot — alertmanager stayed down after a host reboot.
+            docker exec monitoringmelinakrzemowapl-prometheus-1 \
+              wget -q --post-data='' -O /dev/null http://alertmanager:9093/-/reload || true
           DEPLOY
