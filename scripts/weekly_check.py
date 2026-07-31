@@ -493,6 +493,40 @@ def collect_upgrades() -> dict:
     return out
 
 
+def upgrade_commands(up: dict) -> list[str]:
+    """Copy-pastable terminal commands to apply the pending upgrades,
+    built from the actual pending items. Used by both email renderers."""
+    if not (up.get("brew") or up.get("macos")):
+        return []
+    cmds = ["ssh air"]
+    if up.get("brew"):
+        n = len(up["brew"])
+        cmds.append(f"brew upgrade   # all {n} package{'s' if n != 1 else ''}")
+    restart, plain = [], []
+    for m in up.get("macos", []):
+        (restart if "restart" in m.get("detail", "").lower() else plain).append(m)
+    for m in plain:
+        cmds.append(f'sudo softwareupdate -i "{m["label"]}"')
+    if restart:
+        cmds.append("sudo softwareupdate -i -a -R   # restart-required; reboots the Air")
+    return cmds
+
+
+def upgrade_caveats(up: dict) -> list[str]:
+    caveats = []
+    if any(b.get("name") == "cloudflared" for b in up.get("brew", [])):
+        caveats.append(
+            "Upgrading cloudflared restarts the tunnel — an SSH session "
+            "through it drops for a few seconds."
+        )
+    if any("restart" in m.get("detail", "").lower() for m in up.get("macos", [])):
+        caveats.append(
+            "The -R flag reboots the Air — check that Colima and the app "
+            "stacks come back up afterwards."
+        )
+    return caveats
+
+
 def collect_node_exporter() -> dict:
     code = sh(
         "docker", "run", "--rm", "--network", ALLOY_NETWORK,
@@ -879,13 +913,23 @@ def html_report(report: dict, warns: list[str]) -> str:
     if not up["brew_ok"]:
         check_notes.append("Homebrew check failed")
     if up_rows:
-        upgrades_body = (
-            table(["", "package", "update"], up_rows)
-            + '<div style="font-size:12px;color:#656d76;margin-top:10px;">'
-            'Apply on the Air: <span style="font-family:ui-monospace,monospace;">'
-            'brew upgrade</span> · <span style="font-family:ui-monospace,monospace;">'
-            'sudo softwareupdate -i -a</span></div>'
+        cmd_block = (
+            '<div style="font-size:12px;color:#656d76;text-transform:uppercase;'
+            'letter-spacing:0.04em;font-weight:600;margin:14px 0 6px 0;">How to apply</div>'
+            '<pre style="background:#f6f8fa;border:1px solid #d0d7de;border-radius:6px;'
+            'padding:12px 14px;margin:0;font-family:ui-monospace,monospace;font-size:12px;'
+            'line-height:1.6;color:#1f2328;overflow-x:auto;">'
+            + escape("\n".join(upgrade_commands(up)))
+            + "</pre>"
         )
+        caveats = upgrade_caveats(up)
+        if caveats:
+            cmd_block += (
+                '<div style="font-size:12px;color:#9a6700;margin-top:8px;">'
+                + "<br/>".join(f"⚠ {escape(c)}" for c in caveats)
+                + "</div>"
+            )
+        upgrades_body = table(["", "package", "update"], up_rows) + cmd_block
     elif check_notes:
         upgrades_body = (
             f'<div style="color:#9a6700;font-size:14px;">{escape(" · ".join(check_notes))}</div>'
@@ -1096,7 +1140,11 @@ def text_report(report: dict, warns: list[str]) -> str:
     else:
         lines.append("  ? Homebrew: check failed")
     if up["macos"] or up["brew"]:
-        lines.append("  apply: brew upgrade / sudo softwareupdate -i -a")
+        lines.append("  how to apply:")
+        for c in upgrade_commands(up):
+            lines.append(f"    $ {c}")
+        for c in upgrade_caveats(up):
+            lines.append(f"    ⚠ {c}")
     lines.append("")
 
     ne = report["node_exporter"]

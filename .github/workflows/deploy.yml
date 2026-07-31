@@ -56,6 +56,8 @@ jobs:
             --exclude='scripts/air_watchdog_state.json' \
             --exclude='scripts/battery_textfile.out.log' \
             --exclude='scripts/battery_textfile.err.log' \
+            --exclude='scripts/updates_textfile.out.log' \
+            --exclude='scripts/updates_textfile.err.log' \
             -e "ssh" \
             ./ $SSH_TARGET:$DEPLOY_DIR/
 
