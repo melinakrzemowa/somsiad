@@ -51,6 +51,11 @@ jobs:
             --exclude='scripts/last_run.log' \
             --exclude='scripts/launchd.out.log' \
             --exclude='scripts/launchd.err.log' \
+            --exclude='scripts/air_watchdog.out.log' \
+            --exclude='scripts/air_watchdog.err.log' \
+            --exclude='scripts/air_watchdog_state.json' \
+            --exclude='scripts/battery_textfile.out.log' \
+            --exclude='scripts/battery_textfile.err.log' \
             -e "ssh" \
             ./ $SSH_TARGET:$DEPLOY_DIR/
 

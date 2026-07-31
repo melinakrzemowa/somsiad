@@ -441,6 +441,58 @@ def collect_host_resources() -> dict:
     }
 
 
+def collect_upgrades() -> dict:
+    """Pending Homebrew and macOS updates on the host.
+
+    Best-effort: a failed check degrades to ok=False instead of failing
+    the whole report. `softwareupdate -l` can take a minute; launchd has
+    no user-session constraints that stop either command.
+    """
+    out = {"brew": [], "brew_ok": False, "macos": [], "macos_ok": False}
+
+    # Homebrew formulae + casks. Empty output = the command itself failed
+    # (with nothing outdated it still prints {"formulae":[],"casks":[]}).
+    raw = sh("brew", "outdated", "--json=v2", timeout=180)
+    if raw.strip():
+        try:
+            data = json.loads(raw)
+
+            def versions(v) -> str:
+                return ", ".join(v) if isinstance(v, list) else str(v)
+
+            for f in data.get("formulae", []) + data.get("casks", []):
+                out["brew"].append({
+                    "name": f.get("name", "?"),
+                    "installed": versions(f.get("installed_versions", "?")),
+                    "current": f.get("current_version", "?"),
+                })
+            out["brew_ok"] = True
+        except ValueError:
+            pass
+
+    # macOS updates. The banner and the "no updates" notice split between
+    # stdout and stderr depending on the OS release, so read both.
+    try:
+        r = subprocess.run(
+            ["softwareupdate", "-l"],
+            capture_output=True, text=True, timeout=300, check=False,
+        )
+        su_out = (r.stdout or "") + (r.stderr or "")
+    except Exception:
+        su_out = ""
+    if "No new software available" in su_out:
+        out["macos_ok"] = True
+    else:
+        lines = su_out.splitlines()
+        for i, ln in enumerate(lines):
+            m = re.match(r"^\*\s*Label:\s*(.+)$", ln.strip())
+            if m:
+                detail = lines[i + 1].strip() if i + 1 < len(lines) else ""
+                out["macos"].append({"label": m.group(1).strip(), "detail": detail})
+        out["macos_ok"] = bool(out["macos"])
+    return out
+
+
 def collect_node_exporter() -> dict:
     code = sh(
         "docker", "run", "--rm", "--network", ALLOY_NETWORK,
@@ -483,6 +535,17 @@ def warnings(report: dict) -> list[str]:
             w.append(f"{t['service']} has no recent traces")
     if not report["node_exporter"]["ok"]:
         w.append(f"node_exporter not responding ({report['node_exporter']['code']})")
+    up = report.get("upgrades", {})
+    if up.get("macos"):
+        n = len(up["macos"])
+        w.append(f"{n} macOS update{'s' if n != 1 else ''} pending (softwareupdate)")
+    elif not up.get("macos_ok", True):
+        w.append("macOS update check failed (softwareupdate -l)")
+    if up.get("brew"):
+        n = len(up["brew"])
+        w.append(f"{n} Homebrew package{'s' if n != 1 else ''} outdated")
+    elif not up.get("brew_ok", True):
+        w.append("Homebrew outdated check failed")
     return w
 
 # --- HTML rendering ---------------------------------------------------------
@@ -794,6 +857,50 @@ def html_report(report: dict, warns: list[str]) -> str:
         + "</div>"
     )
 
+    # ---- Pending upgrades ----
+    up = report.get("upgrades", {"brew": [], "macos": [], "brew_ok": False, "macos_ok": False})
+    up_rows = []
+    for m in up["macos"]:
+        up_rows.append([
+            badge(None, "macOS"),
+            f'<span style="font-family:ui-monospace,monospace;">{escape(m["label"])}</span>',
+            f'<span style="color:#656d76;font-size:13px;">{escape(m["detail"])}</span>',
+        ])
+    for b in up["brew"]:
+        up_rows.append([
+            badge(None, "brew"),
+            f'<span style="font-family:ui-monospace,monospace;">{escape(b["name"])}</span>',
+            f'<span style="color:#656d76;font-size:13px;">'
+            f'{escape(b["installed"])} → {escape(b["current"])}</span>',
+        ])
+    check_notes = []
+    if not up["macos_ok"] and not up["macos"]:
+        check_notes.append("macOS update check failed")
+    if not up["brew_ok"]:
+        check_notes.append("Homebrew check failed")
+    if up_rows:
+        upgrades_body = (
+            table(["", "package", "update"], up_rows)
+            + '<div style="font-size:12px;color:#656d76;margin-top:10px;">'
+            'Apply on the Air: <span style="font-family:ui-monospace,monospace;">'
+            'brew upgrade</span> · <span style="font-family:ui-monospace,monospace;">'
+            'sudo softwareupdate -i -a</span></div>'
+        )
+    elif check_notes:
+        upgrades_body = (
+            f'<div style="color:#9a6700;font-size:14px;">{escape(" · ".join(check_notes))}</div>'
+        )
+    else:
+        upgrades_body = (
+            '<div style="color:#656d76;font-size:14px;">Everything up to date.</div>'
+        )
+    upgrades_card = (
+        f'<div style="{css_card}">'
+        f'<h2 style="{css_h2}">Pending upgrades</h2>'
+        + upgrades_body
+        + "</div>"
+    )
+
     # ---- Header ----
     today = datetime.now().strftime("%A, %B %d, %Y")
     header_html = (
@@ -887,6 +994,7 @@ def html_report(report: dict, warns: list[str]) -> str:
         + alerts_card
         + silences_card
         + host_card
+        + upgrades_card
         + footer_html
         + "</td></tr></table></td></tr></table></body></html>"
     )
@@ -969,6 +1077,28 @@ def text_report(report: dict, warns: list[str]) -> str:
         lines.append(f"  {p['label']:<32} {p['user']:<12} {p['rss_mib']:>5.0f} MiB")
     lines.append("")
 
+    up = report.get("upgrades", {"brew": [], "macos": [], "brew_ok": False, "macos_ok": False})
+    lines.append("PENDING UPGRADES")
+    if up["macos"]:
+        for m in up["macos"]:
+            lines.append(f"  ⚠ macOS  {m['label']}")
+            if m["detail"]:
+                lines.append(f"           {m['detail']}")
+    elif up["macos_ok"]:
+        lines.append("  ✓ macOS: up to date")
+    else:
+        lines.append("  ? macOS: update check failed")
+    if up["brew"]:
+        for b in up["brew"]:
+            lines.append(f"  ⚠ brew   {b['name']:<28} {b['installed']} → {b['current']}")
+    elif up["brew_ok"]:
+        lines.append("  ✓ Homebrew: up to date")
+    else:
+        lines.append("  ? Homebrew: check failed")
+    if up["macos"] or up["brew"]:
+        lines.append("  apply: brew upgrade / sudo softwareupdate -i -a")
+    lines.append("")
+
     ne = report["node_exporter"]
     lines.append(f"node_exporter: {'OK' if ne['ok'] else 'ERROR'} (HTTP {ne['code']})")
     lines.append("")
@@ -1010,6 +1140,7 @@ def collect_all() -> dict:
         "silences": collect_silences(),
         "host": collect_host_resources(),
         "node_exporter": collect_node_exporter(),
+        "upgrades": collect_upgrades(),
         "charts": collect_charts(),
     }
 

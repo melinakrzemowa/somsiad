@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.melinakrzemowa.somsiad-battery</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/kelu/services/monitoring.melinakrzemowa.pl/scripts/battery_textfile.py</string>
+  </array>
+
+  <!-- Battery health moves slowly; every 5 minutes is plenty. -->
+  <key>StartInterval</key>
+  <integer>300</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/kelu/services/monitoring.melinakrzemowa.pl/scripts/battery_textfile.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/kelu/services/monitoring.melinakrzemowa.pl/scripts/battery_textfile.err.log</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>

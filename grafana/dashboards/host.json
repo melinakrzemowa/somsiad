@@ -1,101 +1,223 @@
 {
   "title": "Somsiad — Host",
   "uid": "somsiad-host",
-  "tags": ["somsiad", "host"],
+  "tags": [
+    "somsiad",
+    "host"
+  ],
   "description": "Whole-host metrics from node_exporter running on the macOS host (host.docker.internal:9100).",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "panels": [
     {
       "id": 1,
       "type": "stat",
       "title": "Uptime",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "time() - node_boot_time_seconds{job=\"host\"}", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "s", "decimals": 1 } },
-      "options": { "colorMode": "value", "graphMode": "none", "textMode": "value" }
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "time() - node_boot_time_seconds{job=\"host\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 1
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
     },
     {
       "id": 2,
       "type": "stat",
       "title": "CPU usage",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "(1 - avg(rate(node_cpu_seconds_total{job=\"host\",mode=\"idle\"}[2m]))) * 100", "refId": "A" }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(1 - avg(rate(node_cpu_seconds_total{job=\"host\",mode=\"idle\"}[2m]))) * 100",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
           "min": 0,
           "max": 100,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "yellow", "value": 70 },
-            { "color": "red", "value": 90 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value" }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
     },
     {
       "id": 3,
       "type": "stat",
       "title": "Memory used",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{
-        "expr": "(node_memory_active_bytes{job=\"host\"} + node_memory_wired_bytes{job=\"host\"} + node_memory_compressed_bytes{job=\"host\"}) / node_memory_total_bytes{job=\"host\"} * 100",
-        "refId": "A"
-      }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(node_memory_active_bytes{job=\"host\"} + node_memory_wired_bytes{job=\"host\"} + node_memory_compressed_bytes{job=\"host\"}) / node_memory_total_bytes{job=\"host\"} * 100",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 1,
           "min": 0,
           "max": 100,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "yellow", "value": 75 },
-            { "color": "red", "value": 90 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value" }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
     },
     {
       "id": 4,
       "type": "stat",
       "title": "Load (1m)",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "node_load1{job=\"host\"}", "refId": "A" }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "node_load1{job=\"host\"}",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "decimals": 2,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "yellow", "value": 6 },
-            { "color": "red", "value": 12 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 6
+              },
+              {
+                "color": "red",
+                "value": 12
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value" }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
     },
     {
       "id": 5,
       "type": "timeseries",
       "title": "CPU by mode (% of all cores)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{
-        "expr": "avg by (mode) (rate(node_cpu_seconds_total{job=\"host\",mode!=\"idle\"}[2m])) * 100",
-        "legendFormat": "{{mode}}",
-        "refId": "A"
-      }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "avg by (mode) (rate(node_cpu_seconds_total{job=\"host\",mode!=\"idle\"}[2m])) * 100",
+          "legendFormat": "{{mode}}",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
@@ -105,29 +227,73 @@
             "lineWidth": 1,
             "fillOpacity": 35,
             "showPoints": "never",
-            "stacking": { "mode": "normal", "group": "A" }
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Memory breakdown",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "node_memory_wired_bytes{job=\"host\"}", "legendFormat": "wired", "refId": "A" },
-        { "expr": "node_memory_active_bytes{job=\"host\"}", "legendFormat": "active", "refId": "B" },
-        { "expr": "node_memory_compressed_bytes{job=\"host\"}", "legendFormat": "compressed", "refId": "C" },
-        { "expr": "node_memory_inactive_bytes{job=\"host\"}", "legendFormat": "inactive", "refId": "D" },
-        { "expr": "node_memory_purgeable_bytes{job=\"host\"}", "legendFormat": "purgeable", "refId": "E" },
-        { "expr": "node_memory_free_bytes{job=\"host\"}", "legendFormat": "free", "refId": "F" }
+        {
+          "expr": "node_memory_wired_bytes{job=\"host\"}",
+          "legendFormat": "wired",
+          "refId": "A"
+        },
+        {
+          "expr": "node_memory_active_bytes{job=\"host\"}",
+          "legendFormat": "active",
+          "refId": "B"
+        },
+        {
+          "expr": "node_memory_compressed_bytes{job=\"host\"}",
+          "legendFormat": "compressed",
+          "refId": "C"
+        },
+        {
+          "expr": "node_memory_inactive_bytes{job=\"host\"}",
+          "legendFormat": "inactive",
+          "refId": "D"
+        },
+        {
+          "expr": "node_memory_purgeable_bytes{job=\"host\"}",
+          "legendFormat": "purgeable",
+          "refId": "E"
+        },
+        {
+          "expr": "node_memory_free_bytes{job=\"host\"}",
+          "legendFormat": "free",
+          "refId": "F"
+        }
       ],
       "fieldConfig": {
         "defaults": {
@@ -138,26 +304,58 @@
             "lineWidth": 1,
             "fillOpacity": 35,
             "showPoints": "never",
-            "stacking": { "mode": "normal", "group": "A" }
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi", "sort": "desc" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
       }
     },
     {
       "id": 7,
       "type": "timeseries",
       "title": "Load average",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "node_load1{job=\"host\"}",  "legendFormat": "1m",  "refId": "A" },
-        { "expr": "node_load5{job=\"host\"}",  "legendFormat": "5m",  "refId": "B" },
-        { "expr": "node_load15{job=\"host\"}", "legendFormat": "15m", "refId": "C" }
+        {
+          "expr": "node_load1{job=\"host\"}",
+          "legendFormat": "1m",
+          "refId": "A"
+        },
+        {
+          "expr": "node_load5{job=\"host\"}",
+          "legendFormat": "5m",
+          "refId": "B"
+        },
+        {
+          "expr": "node_load15{job=\"host\"}",
+          "legendFormat": "15m",
+          "refId": "C"
+        }
       ],
       "fieldConfig": {
         "defaults": {
@@ -169,49 +367,99 @@
             "fillOpacity": 0,
             "showPoints": "never"
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       }
     },
     {
       "id": 8,
       "type": "bargauge",
       "title": "Filesystem usage",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{
-        "expr": "(1 - node_filesystem_avail_bytes{job=\"host\",mountpoint=~\"/|/System/Volumes/Data\"} / node_filesystem_size_bytes{job=\"host\",mountpoint=~\"/|/System/Volumes/Data\"}) * 100",
-        "legendFormat": "{{mountpoint}}",
-        "refId": "A"
-      }],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(1 - node_filesystem_avail_bytes{job=\"host\",mountpoint=~\"/|/System/Volumes/Data\"} / node_filesystem_size_bytes{job=\"host\",mountpoint=~\"/|/System/Volumes/Data\"}) * 100",
+          "legendFormat": "{{mountpoint}}",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
           "max": 100,
           "decimals": 1,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "yellow", "value": 75 },
-            { "color": "red", "value": 90 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 75
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
         }
       },
-      "options": { "orientation": "horizontal", "displayMode": "gradient", "showUnfilled": true }
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "showUnfilled": true
+      }
     },
     {
       "id": 9,
       "type": "timeseries",
       "title": "Network throughput (en0)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "rate(node_network_receive_bytes_total{job=\"host\",device=\"en0\"}[2m]) * 8",  "legendFormat": "rx", "refId": "A" },
-        { "expr": "rate(node_network_transmit_bytes_total{job=\"host\",device=\"en0\"}[2m]) * 8", "legendFormat": "tx", "refId": "B" }
+        {
+          "expr": "rate(node_network_receive_bytes_total{job=\"host\",device=\"en0\"}[2m]) * 8",
+          "legendFormat": "rx",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total{job=\"host\",device=\"en0\"}[2m]) * 8",
+          "legendFormat": "tx",
+          "refId": "B"
+        }
       ],
       "fieldConfig": {
         "defaults": {
@@ -223,23 +471,47 @@
             "fillOpacity": 20,
             "showPoints": "never"
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       }
     },
     {
       "id": 10,
       "type": "timeseries",
       "title": "Disk I/O (disk0)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "rate(node_disk_read_bytes_total{job=\"host\",device=\"disk0\"}[2m])",    "legendFormat": "read",  "refId": "A" },
-        { "expr": "rate(node_disk_written_bytes_total{job=\"host\",device=\"disk0\"}[2m])", "legendFormat": "write", "refId": "B" }
+        {
+          "expr": "rate(node_disk_read_bytes_total{job=\"host\",device=\"disk0\"}[2m])",
+          "legendFormat": "read",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_disk_written_bytes_total{job=\"host\",device=\"disk0\"}[2m])",
+          "legendFormat": "write",
+          "refId": "B"
+        }
       ],
       "fieldConfig": {
         "defaults": {
@@ -251,92 +523,337 @@
             "fillOpacity": 20,
             "showPoints": "never"
           },
-          "color": { "mode": "palette-classic" }
+          "color": {
+            "mode": "palette-classic"
+          }
         }
       },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "multi" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
       }
     },
     {
       "id": 11,
       "type": "stat",
       "title": "Battery charge",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 28 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{
-        "expr": "node_power_supply_current_capacity{job=\"host\"} / node_power_supply_max_capacity{job=\"host\"} * 100",
-        "refId": "A"
-      }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "node_power_supply_current_capacity{job=\"host\"} / node_power_supply_max_capacity{job=\"host\"} * 100",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "decimals": 0,
           "min": 0,
           "max": 100,
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "red", "value": null },
-            { "color": "yellow", "value": 25 },
-            { "color": "green", "value": 60 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 25
+              },
+              {
+                "color": "green",
+                "value": 60
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "value" }
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
     },
     {
       "id": 12,
       "type": "stat",
       "title": "Power source",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 28 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "node_power_supply_power_source_state{job=\"host\"} == 1", "legendFormat": "{{state}}", "refId": "A" }],
-      "options": { "colorMode": "value", "graphMode": "none", "textMode": "name" }
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "node_power_supply_power_source_state{job=\"host\"} == 1",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "name"
+      }
     },
     {
       "id": 13,
       "type": "stat",
       "title": "Battery health",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 28 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{
-        "expr": "(node_power_supply_battery_health{job=\"host\",state=\"Good\"} == 1) * 1 or (node_power_supply_battery_health{job=\"host\",state=\"Fair\"} == 1) * 2 or (node_power_supply_battery_health{job=\"host\",state=\"Poor\"} == 1) * 3 or (node_power_supply_battery_health{job=\"host\",state=\"Check Battery\"} == 1) * 4",
-        "refId": "A"
-      }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(somsiad_battery_condition_info{job=\"host\",condition=\"Good\"} == 1) * 1 or (somsiad_battery_condition_info{job=\"host\",condition=\"Fair\"} == 1) * 2 or (somsiad_battery_condition_info{job=\"host\",condition=\"Poor\"} == 1) * 3 or (somsiad_battery_condition_info{job=\"host\",condition!~\"Good|Fair|Poor\"} == 1) * 4",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "1": { "text": "Good" } } },
-            { "type": "value", "options": { "2": { "text": "Fair" } } },
-            { "type": "value", "options": { "3": { "text": "Poor" } } },
-            { "type": "value", "options": { "4": { "text": "Check Battery" } } }
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "Normal"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "2": {
+                  "text": "Fair"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "3": {
+                  "text": "Poor"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "4": {
+                  "text": "Service Recommended"
+                }
+              }
+            }
           ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "green", "value": null },
-            { "color": "yellow", "value": 2 },
-            { "color": "orange", "value": 3 },
-            { "color": "red", "value": 4 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 2
+              },
+              {
+                "color": "orange",
+                "value": 3
+              },
+              {
+                "color": "red",
+                "value": 4
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Battery condition from system_profiler (what System Settings shows). node_exporter's IOKit-based health key reports 'Check Battery' spuriously on Apple Silicon, so it is not used here."
     },
     {
       "id": 14,
       "type": "stat",
       "title": "Charging?",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 28 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "node_power_supply_charging{job=\"host\"}", "refId": "A" }],
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 28
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "node_power_supply_charging{job=\"host\"}",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "no", "color": "blue" } } },
-            { "type": "value", "options": { "1": { "text": "yes", "color": "green" } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "no",
+                  "color": "blue"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "yes",
+                  "color": "green"
+                }
+              }
+            }
           ]
         }
       },
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "value" }
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Battery max capacity",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "Maximum charge relative to design capacity. Apple considers ~80% at 1000 cycles normal wear.",
+      "targets": [
+        {
+          "expr": "somsiad_battery_max_capacity_percent{job=\"host\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 0,
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 70
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "value"
+      }
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Battery cycle count",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 32
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "description": "This model is rated for 1000 cycles.",
+      "targets": [
+        {
+          "expr": "somsiad_battery_cycle_count{job=\"host\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 800
+              },
+              {
+                "color": "orange",
+                "value": 1000
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      }
     }
   ]
 }

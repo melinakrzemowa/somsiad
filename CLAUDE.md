@@ -38,9 +38,13 @@ Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
 - The user's email memory says they're at `bartosz.kalinowski@geeksoft.pl` (work). The alert recipient is `kelostrada@gmail.com` (personal) — don't conflate these.
 - Git remote here is `kelostrada/somsiad` (personal account). Use `git@github.com-kelostrada:kelostrada/somsiad.git` for the URL — work-account SSH key won't have push rights.
 
-## What this stack deliberately does *not* do
+## Host metrics & battery
 
-- Host-level macOS metrics (memory pressure, disk I/O, thermal throttling). Inside the Colima VM we can't see them. To add: brew install `node_exporter` on macOS, expose on `:9100`, add a Prometheus scrape for `host.docker.internal:9100`.
+- macOS host metrics come from brew-installed `node_exporter` on `:9100` (job `host`), scraped via `host.docker.internal:9100`. Dashboard: `grafana/dashboards/host.json`.
+- **Battery health does NOT use `node_power_supply_battery_health`** — that's IOKit's power-source key, which spuriously reports "Check Battery" on Apple Silicon while macOS's real verdict (System Settings / `system_profiler` Condition) is Normal. Instead `scripts/battery_textfile.py` (launchd, every 5 min) writes `somsiad_battery_*` metrics from `system_profiler SPPowerDataType -json` to `/Users/kelu/services/node_exporter/textfile/battery.prom`, which node_exporter serves via `--collector.textfile.directory` (configured in `/opt/homebrew/etc/node_exporter.args` on the host). The textfile dir lives outside the deploy dir so CI's `rsync --delete` can't touch it.
+- "AC attached; not charging" at ~80% is macOS battery health management holding the charge on purpose (`NotChargingReason=0x1000000`) — normal for an always-plugged-in machine, don't alert on it.
+
+## What this stack deliberately does *not* do
 - Long-term metrics retention. 30d Prometheus, 30d Loki, 7d Tempo. Plenty for a personal stack.
 - High availability. One process per component. If the Air dies, monitoring dies. Acceptable trade-off here.
 - Synthetic checks beyond HTTP 2xx. If you need login flows or DB-driven probes, add a separate Playwright/probe service later.
