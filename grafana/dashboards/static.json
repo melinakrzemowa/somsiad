@@ -89,6 +89,39 @@
       "datasource": { "type": "loki", "uid": "loki" },
       "targets": [{ "expr": "{service=\"$target\"}", "refId": "A" }],
       "options": { "showTime": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Uptime",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "probe_success{target=\"$target\"}", "legendFormat": "up", "refId": "A" }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 1, "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "showPoints": "never"
+          },
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DOWN" } } },
+            { "type": "value", "options": { "1": { "text": "UP" } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ]},
+          "color": { "mode": "thresholds" }
+        }
+      },
+      "options": {
+        "legend": { "showLegend": false },
+        "tooltip": { "mode": "single" }
+      }
     }
   ]
 }
