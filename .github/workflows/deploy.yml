@@ -77,8 +77,10 @@ jobs:
             # Best-effort: ignore errors if a service is still warming up.
             docker exec monitoringmelinakrzemowapl-prometheus-1 \
               wget -q --post-data='' http://localhost:9090/-/reload || true
-            docker exec monitoringmelinakrzemowapl-alloy-1 \
-              wget -q --post-data='' http://localhost:12345/-/reload || true
+            # Alloy's image has no wget/curl — POST the reload from the
+            # prometheus container over the compose network instead.
+            docker exec monitoringmelinakrzemowapl-prometheus-1 \
+              wget -q --post-data='' -O /dev/null http://alloy:12345/-/reload || true
             # NOT `docker kill --signal=HUP`: docker kill (any signal) marks the
             # container "manually stopped", so restart:unless-stopped skips it on
             # the next VM boot — alertmanager stayed down after a host reboot.
