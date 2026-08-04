@@ -4,13 +4,26 @@ groups:
     rules:
       - alert: ServiceDown
         # probe_success comes from blackbox; the `target` label is added in alloy/config.alloy.
-        expr: probe_success == 0
+        # fossil/kelostrada are excluded here — they have their own 1m rule below.
+        expr: probe_success{target!~"fossil|kelostrada"} == 0
         for: 2m
         labels:
           severity: critical
         annotations:
           summary: "{{ $labels.target }} is down"
           description: "HTTP probe to {{ $labels.target }} has failed for 2+ minutes."
+
+      - alert: KelostradaSiteDown
+        # Bartosz's external sites (fossil.kelostrada.pl, kelostrada.pl) —
+        # tighter 1-minute window per his request. Strict probe module: a
+        # Cloudflare challenge/5xx counts as down, only 200/301/302 pass.
+        expr: probe_success{target=~"fossil|kelostrada"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.target }} is down"
+          description: "HTTP probe to {{ $labels.instance }} has failed for 1+ minute (non-2xx/3xx or no response)."
 
       - alert: PhoenixScrapeDown
         # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the

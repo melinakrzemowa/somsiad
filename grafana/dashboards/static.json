@@ -14,10 +14,12 @@
         "type": "custom",
         "name": "target",
         "label": "Site",
-        "query": "mooncraft,abyss",
+        "query": "mooncraft,abyss,fossil,kelostrada",
         "options": [
-          { "text": "mooncraft", "value": "mooncraft", "selected": true },
-          { "text": "abyss",     "value": "abyss",     "selected": false }
+          { "text": "mooncraft",  "value": "mooncraft",  "selected": true },
+          { "text": "abyss",      "value": "abyss",      "selected": false },
+          { "text": "fossil",     "value": "fossil",     "selected": false },
+          { "text": "kelostrada", "value": "kelostrada", "selected": false }
         ],
         "current": { "text": "mooncraft", "value": "mooncraft" },
         "includeAll": false,
