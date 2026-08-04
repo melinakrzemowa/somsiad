@@ -1,53 +1,131 @@
 {
   "title": "Somsiad — Overview",
   "uid": "somsiad-overview",
-  "tags": ["somsiad", "overview"],
+  "tags": [
+    "somsiad",
+    "overview"
+  ],
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
-  "time": { "from": "now-6h", "to": "now" },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "panels": [
     {
       "id": 1,
       "type": "stat",
       "title": "Public endpoints — up?",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "probe_success", "legendFormat": "{{target}}", "refId": "A" }
+        {
+          "expr": "probe_success",
+          "legendFormat": "{{target}}",
+          "refId": "A"
+        }
       ],
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
-            { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
           ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "red", "value": null },
-            { "color": "green", "value": 1 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
         }
       },
-      "options": { "colorMode": "background", "textMode": "value_and_name", "graphMode": "none" }
+      "options": {
+        "colorMode": "background",
+        "textMode": "value_and_name",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Probe latency (p50)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
-        { "expr": "probe_duration_seconds", "legendFormat": "{{target}}", "refId": "A" }
+        {
+          "expr": "probe_duration_seconds",
+          "legendFormat": "{{target}}",
+          "refId": "A"
+        }
       ],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
     },
     {
       "id": 3,
       "type": "timeseries",
       "title": "Container CPU (cores, by container)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 6
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{container_id!=\"\"}[2m]) * on (container_id) group_left(name) docker_container_info)",
@@ -60,8 +138,16 @@
       "id": 4,
       "type": "timeseries",
       "title": "Container memory (MB, by container)",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
       "targets": [
         {
           "expr": "sum by (name) (container_memory_usage_bytes{container_id!=\"\"} * on (container_id) group_left(name) docker_container_info) / 1024 / 1024",
@@ -69,21 +155,36 @@
           "refId": "A"
         }
       ],
-      "fieldConfig": { "defaults": { "unit": "decmbytes" } }
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes"
+        }
+      }
     },
     {
       "id": 5,
       "type": "logs",
       "title": "Recent errors (all services)",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
-      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 14
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
           "expr": "{service=~\".+\"} |~ \"(?i)error|exception|fatal|panic|traceback\"",
           "refId": "A"
         }
       ],
-      "options": { "showTime": true, "wrapLogMessage": true }
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true
+      }
     }
   ]
 }

@@ -1,13 +1,19 @@
 {
   "title": "Somsiad — Static Site",
   "uid": "somsiad-static",
-  "tags": ["somsiad", "static"],
+  "tags": [
+    "somsiad",
+    "static"
+  ],
   "description": "Per-site overview for the static (no-app-metrics) services. Pick a target from the dropdown.",
   "timezone": "browser",
   "schemaVersion": 39,
   "version": 1,
   "refresh": "30s",
-  "time": { "from": "now-24h", "to": "now" },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -16,12 +22,31 @@
         "label": "Site",
         "query": "mooncraft,abyss,fossil,kelostrada",
         "options": [
-          { "text": "mooncraft",  "value": "mooncraft",  "selected": true },
-          { "text": "abyss",      "value": "abyss",      "selected": false },
-          { "text": "fossil",     "value": "fossil",     "selected": false },
-          { "text": "kelostrada", "value": "kelostrada", "selected": false }
+          {
+            "text": "mooncraft",
+            "value": "mooncraft",
+            "selected": true
+          },
+          {
+            "text": "abyss",
+            "value": "abyss",
+            "selected": false
+          },
+          {
+            "text": "fossil",
+            "value": "fossil",
+            "selected": false
+          },
+          {
+            "text": "kelostrada",
+            "value": "kelostrada",
+            "selected": false
+          }
         ],
-        "current": { "text": "mooncraft", "value": "mooncraft" },
+        "current": {
+          "text": "mooncraft",
+          "value": "mooncraft"
+        },
         "includeAll": false,
         "multi": false
       }
@@ -32,43 +57,142 @@
       "id": 1,
       "type": "stat",
       "title": "Status",
-      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_success{target=\"$target\"}", "refId": "A" }],
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "probe_success{target=\"$target\"}",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" } } },
-            { "type": "value", "options": { "1": { "text": "UP", "color": "green" } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN",
+                  "color": "red"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP",
+                  "color": "green"
+                }
+              }
+            }
           ]
         }
       },
-      "options": { "colorMode": "background", "graphMode": "none" }
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 2,
       "type": "stat",
       "title": "Probe latency",
-      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{target=\"$target\"}", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds{target=\"$target\"}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
     },
     {
       "id": 3,
       "type": "stat",
       "title": "TLS cert expiry",
-      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "(probe_ssl_earliest_cert_expiry{target=\"$target\"} - time()) / 86400", "refId": "A" }],
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "(probe_ssl_earliest_cert_expiry{target=\"$target\"} - time()) / 86400",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
           "unit": "days",
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "red", "value": null },
-            { "color": "yellow", "value": 14 },
-            { "color": "green", "value": 30 }
-          ]}
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 14
+              },
+              {
+                "color": "green",
+                "value": 30
+              }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         }
       }
     },
@@ -76,30 +200,80 @@
       "id": 4,
       "type": "timeseries",
       "title": "Probe latency over time",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_duration_seconds{target=\"$target\"}", "legendFormat": "duration", "refId": "A" }],
-      "fieldConfig": { "defaults": { "unit": "s" } }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "probe_duration_seconds{target=\"$target\"}",
+          "legendFormat": "duration",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
     },
     {
       "id": 5,
       "type": "logs",
       "title": "Logs",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
-      "datasource": { "type": "loki", "uid": "loki" },
-      "targets": [{ "expr": "{service=\"$target\"}", "refId": "A" }],
-      "options": { "showTime": true, "wrapLogMessage": true }
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "targets": [
+        {
+          "expr": "{service=\"$target\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true
+      }
     },
     {
       "id": 6,
       "type": "timeseries",
       "title": "Uptime",
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 12 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "expr": "probe_success{target=\"$target\"}", "legendFormat": "up", "refId": "A" }],
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 12
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "probe_success{target=\"$target\"}",
+          "legendFormat": "up",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "min": 0, "max": 1, "decimals": 0,
+          "min": 0,
+          "max": 1,
+          "decimals": 0,
           "custom": {
             "drawStyle": "line",
             "lineInterpolation": "stepAfter",
@@ -108,19 +282,48 @@
             "showPoints": "never"
           },
           "mappings": [
-            { "type": "value", "options": { "0": { "text": "DOWN" } } },
-            { "type": "value", "options": { "1": { "text": "UP" } } }
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "DOWN"
+                }
+              }
+            },
+            {
+              "type": "value",
+              "options": {
+                "1": {
+                  "text": "UP"
+                }
+              }
+            }
           ],
-          "thresholds": { "mode": "absolute", "steps": [
-            { "color": "red", "value": null },
-            { "color": "green", "value": 1 }
-          ]},
-          "color": { "mode": "thresholds" }
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
         }
       },
       "options": {
-        "legend": { "showLegend": false },
-        "tooltip": { "mode": "single" }
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
       }
     }
   ]
