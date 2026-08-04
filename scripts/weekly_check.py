@@ -65,9 +65,11 @@ PROBES = [
     ("mooncraft", "https://mooncraft.melinakrzemowa.pl"),
     ("abyss", "https://abyss.melinakrzemowa.pl"),
     ("monitoring", "https://monitoring.melinakrzemowa.pl"),
+    ("fossil", "https://fossil.kelostrada.pl"),
+    ("kelostrada", "https://kelostrada.pl"),
 ]
 PHOENIX_SERVICES = ["instagrain", "sribia"]
-STATIC_SERVICES = ["mooncraft", "abyss"]
+STATIC_SERVICES = ["mooncraft", "abyss", "fossil", "kelostrada"]
 
 # All container name prefixes the report knows about. Used to order rows and
 # to tell "expected" containers from anything new that shows up.
@@ -225,7 +227,10 @@ def collect_containers() -> list[dict]:
 def collect_probes() -> list[dict]:
     rows = []
     for name, url in PROBES:
+        # Same UA as the blackbox strict module — one Cloudflare WAF
+        # skip-rule covers both the probes and this weekly check.
         code = sh("curl", "-sLo", "/dev/null", "-w", "%{http_code}",
+                  "-A", "somsiad-blackbox/1.0",
                   "--max-time", "8", url, timeout=12).strip() or "000"
         rows.append({
             "name": name, "url": url, "code": code,
