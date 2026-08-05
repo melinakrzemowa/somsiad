@@ -4,7 +4,7 @@ groups:
     rules:
       - alert: ServiceDown
         # probe_success comes from blackbox; the `target` label is added in alloy/config.alloy.
-        # fossil/kelostrada are excluded here — they have their own 1m rule below.
+        # fossil/kelostrada are excluded here — they have their own 5m rule below.
         expr: probe_success{target!~"fossil|kelostrada"} == 0
         for: 2m
         labels:
@@ -15,15 +15,44 @@ groups:
 
       - alert: KelostradaSiteDown
         # Bartosz's external sites (fossil.kelostrada.pl, kelostrada.pl) —
-        # tighter 1-minute window per his request. Strict probe module: a
-        # Cloudflare challenge/5xx counts as down, only 200/301/302 pass.
+        # 5-minute window (was 1m). The origin (shared hosting) slows down
+        # nightly — TTFB climbs to 4-7s between 22:00-01:00 local and
+        # occasionally past the probe timeout, so short failure bursts are the
+        # probe giving up on a slow response, not the site being down. See the
+        # root-cause note in alloy/config.alloy. Measured over 12h: the longest
+        # such burst was 4.5 min, and a 1m window sent 8 alert emails in that
+        # period. 5m rides them out. Strict probe module: a Cloudflare
+        # challenge/5xx counts as down, only 200/301/302 pass.
         expr: probe_success{target=~"fossil|kelostrada"} == 0
-        for: 1m
+        for: 5m
         labels:
           severity: critical
         annotations:
           summary: "{{ $labels.target }} is down"
-          description: "HTTP probe to {{ $labels.instance }} has failed for 1+ minute (non-2xx/3xx or no response)."
+          description: "HTTP probe to {{ $labels.instance }} has failed for 5+ minutes (non-2xx/3xx or no response)."
+
+      - alert: KelostradaSiteSlow
+        # Degradation signal, deliberately NOT an outage signal — the sites
+        # answer, just slowly. Uses probe_duration_seconds (total) rather than
+        # the `processing` phase: a timed-out probe records processing=0, so
+        # mean TTFB drops exactly when the site is worst and an average-based
+        # alert would never fire (measured: the 15m mean never passed 1.3s even
+        # through the worst night). Total duration is high both when the site
+        # is slow and when it times out.
+        #
+        # Threshold is measured, not guessed. Out of ~60 probes per 30m window
+        # the daytime baseline is 2-6 slow samples; the known nightly
+        # 22:00-01:00 degradation peaks at 19-20. 25 sits above the worst
+        # observed night, so this stays quiet for the expected nightly window
+        # and only fires when the origin is worse than its own baseline.
+        # Grounded in a single 12h sample — retune once more history exists.
+        expr: count_over_time((probe_duration_seconds{target=~"fossil|kelostrada"} > 3)[30m:30s]) > 25
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.target }} is slow (responding, degraded)"
+          description: "Over 40% of probes to {{ $labels.target }} in the last 30m took >3s. The site is up but degraded — typically origin/shared-hosting contention, not network (DNS/TCP/TLS stay fast during these episodes)."
 
       - alert: PhoenixScrapeDown
         # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the

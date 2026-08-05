@@ -26,3 +26,9 @@ inhibit_rules:
   - source_matchers: [alertname="ServiceDown"]
     target_matchers: [alertname=~"PhoenixScrapeDown|PhoenixHighErrorRate"]
     equal: [target]
+
+  # A site that's fully down also trips the slow-probe threshold — the "down"
+  # alert is the actionable one, so don't send both for the same target.
+  - source_matchers: [alertname="KelostradaSiteDown"]
+    target_matchers: [alertname="KelostradaSiteSlow"]
+    equal: [target]
