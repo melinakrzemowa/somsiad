@@ -36,7 +36,7 @@ Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
 - The OTLP ports (4317/4318) are bound to `127.0.0.1` only — apps reach them via `host.docker.internal`, never publicly.
 - Cloudflare Access (Zero Trust) is the auth wall. Grafana admin login is fallback.
 - The user's email memory says they're at `bartosz.kalinowski@geeksoft.pl` (work). The alert recipient is `kelostrada@gmail.com` (personal) — don't conflate these.
-- Git remote here is `kelostrada/somsiad` (personal account). Use `git@github.com-kelostrada:kelostrada/somsiad.git` for the URL — work-account SSH key won't have push rights.
+- Git remote here is `melinakrzemowa/somsiad` — clone and push with `git@github.com:melinakrzemowa/somsiad.git`. Plain `github.com` authenticates as **kelostrada** via `~/.ssh/id_ed25519` and has push rights, so no special host alias is needed. (An earlier version of this note claimed the remote was `kelostrada/somsiad` behind a `github.com-kelostrada` SSH alias — neither exists; that alias is not in `~/.ssh/config` and following it fails.)
 
 ## Host metrics & battery
 
