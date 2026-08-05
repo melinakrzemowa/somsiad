@@ -35,7 +35,7 @@ Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
 - `/var/run/docker.sock` works inside containers thanks to Colima's standard symlink. Alloy and cAdvisor both rely on it.
 - The OTLP ports (4317/4318) are bound to `127.0.0.1` only — apps reach them via `host.docker.internal`, never publicly.
 - Cloudflare Access (Zero Trust) is the auth wall. Grafana admin login is fallback.
-- The user's email memory says they're at `bartosz.kalinowski@geeksoft.pl` (work). The alert recipient is `kelostrada@gmail.com` (personal) — don't conflate these.
+- `kelostrada@gmail.com` is the **only** email that belongs in this repo — it's the alert recipient, the SMTP sender's destination, and the git commit identity. Never introduce another address here. In particular, do not pull the user's work email in from session context or memory: work accounts have no place in these personal repos, in config, docs, or commit metadata.
 - Git remote here is `melinakrzemowa/somsiad` — clone and push with `git@github.com:melinakrzemowa/somsiad.git`. Plain `github.com` authenticates as **kelostrada** via `~/.ssh/id_ed25519` and has push rights, so no special host alias is needed. (An earlier version of this note claimed the remote was `kelostrada/somsiad` behind a `github.com-kelostrada` SSH alias — neither exists; that alias is not in `~/.ssh/config` and following it fails.)
 
 ## Host metrics & battery
