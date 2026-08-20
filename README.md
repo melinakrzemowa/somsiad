@@ -145,8 +145,9 @@ Defined in `prometheus/alerts.yml`. They evaluate every 30s in Prometheus, which
 The recipient is hardcoded (`kelostrada@gmail.com`) and the SMTP credentials are server/from in `alertmanager.yml` plus a separate `alertmanager/smtp_password` file (gitignored, mode 600). To add a recipient, edit `alertmanager.yml` and redeploy.
 
 Default rules:
-- **ServiceDown** — any blackbox probe failing for 2m → critical (excludes fossil/kelostrada)
-- **KelostradaSiteDown** — `fossil.kelostrada.pl` / `kelostrada.pl` probe failing for 5m → critical. Longer window than ServiceDown on purpose: that shared hosting has a long latency tail, and short failure bursts are the probe timing out rather than the site being down.
+- **ServiceDown** — any blackbox probe failing for 2m → critical
+- **ProbeChallenged** — a probe receives an edge-served 403 (Cloudflare challenge) for 30m → warning: the origin is not actually being tested
+- **BackupFailed / BackupStale** — the nightly air-backup run failed, or no run recorded in 28h → critical
 - **KelostradaSiteSlow** — >40% of probes to those two sites took >3s over 30m → warning. Catches "up but degraded", which the down alert can't see. Tuned to stay silent through the known nightly slowdown and fire only when it's worse than that.
 - **PhoenixScrapeDown** — `/metrics` unreachable for 5m → warning
 - **ContainerRestartLoop** — container made no progress for 5m → warning

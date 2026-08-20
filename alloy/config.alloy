@@ -203,25 +203,13 @@ otelcol.exporter.otlp "tempo" {
 // =============================================================================
 
 prometheus.exporter.blackbox "public_http" {
-  // http_2xx accepts 401/403 because some targets sit behind Cloudflare Access.
-  // http_2xx_strict does NOT: for plain public sites a 403 usually means a
-  // Cloudflare WAF challenge is answering instead of the origin, and we want
-  // that to count as DOWN rather than silently probing the challenge page.
-  // The custom User-Agent gives Cloudflare WAF skip-rules something to match.
-  // Its 20s timeout (vs 5s) is deliberate. Root cause, measured over one
-  // 12h window: the kelostrada origin (seohost shared hosting) gets slow
-  // every night. Failures are NOT network and NOT Cloudflare — the resolve,
-  // connect, tls and transfer phases stay sub-100ms throughout. Only the
-  // `processing` phase (TTFB, i.e. the origin generating a response) blows
-  // up: p95 ~0.6-2.3s during the day, but 4.3-6.7s between 22:00-01:00
-  // local, with individual samples past 9s. ~85% of all probe failures fell
-  // in that 3-hour window. Every failure was probe_duration pinned at
-  // exactly 9.00s with http_status_code=0 — the old timeout firing, never a
-  // real error response. fossil and kelostrada fail on the same samples
-  // (22 of 30) because they share one origin / one Cloudflare zone.
-  // 5s flapped, 9s still clipped the nightly tail, 20s clears it.
-  // Must stay under scrape_timeout below.
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403] } }, http_2xx_strict: { prober: http, timeout: 20s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302], headers: { User-Agent: somsiad-blackbox/1.0 } } } } }"
+  // One module for every target, all of which live on this host behind the
+  // Cloudflare tunnel. The somsiad-blackbox User-Agent matches a Cloudflare
+  // WAF skip rule, so probes bypass the bot challenge and reach the origin —
+  // without it a challenged probe gets an edge-served 403 and never tests the
+  // site at all (see the ProbeChallenged alert). 401/403 stay in the valid
+  // list for anything later put behind Cloudflare Access.
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403], headers: { User-Agent: somsiad-blackbox/1.0 } } } } }"
 
   target {
     name    = "mooncraft"
@@ -292,9 +280,8 @@ prometheus.exporter.blackbox "public_http" {
     labels  = { target = "melinakrzemowa" }
   }
 
-  // kelostrada.pl (PrestaShop) migrated to the Air 2026-08-20 — the last site
-  // off seohost. Probed like every other local service. The http_2xx_strict
-  // module above is now unused but kept defined.
+  // kelostrada.pl (PrestaShop) — on the Air since 2026-08-20 like everything
+  // else.
   target {
     name    = "kelostrada"
     address = "https://kelostrada.pl"
@@ -311,12 +298,11 @@ prometheus.exporter.blackbox "public_http" {
 prometheus.scrape "blackbox" {
   targets    = prometheus.exporter.blackbox.public_http.targets
   forward_to = [prometheus.remote_write.local.receiver]
-  // 30s keeps decent resolution for the dashboards; the alert windows
-  // (2m ServiceDown, 5m KelostradaSiteDown) each see plenty of samples.
-  // scrape_timeout must exceed the 20s strict-module probe timeout and stay
-  // under scrape_interval.
+  // 30s keeps decent resolution for the dashboards; the 2m ServiceDown
+  // window sees plenty of samples. Timeout just needs headroom over the
+  // module's 5s probe timeout.
   scrape_interval = "30s"
-  scrape_timeout  = "25s"
+  scrape_timeout  = "10s"
 }
 
 prometheus.remote_write "local" {

@@ -1,6 +1,6 @@
 # somsiad — agent notes
 
-This repo holds the monitoring stack deployed to `ssh air` at `monitoring.melinakrzemowa.pl`. Goal: low-effort observability for the user's three personal services.
+This repo holds the monitoring stack deployed to `ssh air` at `monitoring.melinakrzemowa.pl`. Goal: low-effort observability for all of the user's self-hosted services (everything migrated off shared hosting to the Air, 2026-08-20).
 
 ## What this stack is
 

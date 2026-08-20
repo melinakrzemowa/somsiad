@@ -13,6 +13,19 @@ groups:
           summary: "{{ $labels.target }} is down"
           description: "HTTP probe to {{ $labels.target }} has failed for 2+ minutes."
 
+      - alert: ProbeChallenged
+        # A 403 on a plain public site means Cloudflare answered with a bot
+        # challenge instead of the origin — the probe passes (403 is a valid
+        # code, for Access-protected targets) but tests nothing. Usually means
+        # the WAF skip rule for the somsiad-blackbox User-Agent was removed.
+        expr: probe_http_status_code == 403
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.target }} probe is being challenged"
+          description: "The blackbox probe for {{ $labels.target }} receives an edge-served 403, so the origin is not actually being tested. Check the Cloudflare WAF skip rule for User-Agent somsiad-blackbox/1.0."
+
       - alert: BackupFailed
         # The nightly air-backup run (launchd 03:30, script in air-infra repo)
         # reports via node_exporter textfile metrics. Any failed step -> 0.
