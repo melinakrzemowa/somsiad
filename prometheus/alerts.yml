@@ -55,6 +55,28 @@ groups:
           summary: "{{ $labels.target }} is slow (responding, degraded)"
           description: "Over 40% of probes to {{ $labels.target }} in the last 30m took >3s. The site is up but degraded — typically origin/shared-hosting contention, not network (DNS/TCP/TLS stay fast during these episodes)."
 
+      - alert: BackupFailed
+        # The nightly air-backup run (launchd 03:30, script in air-infra repo)
+        # reports via node_exporter textfile metrics. Any failed step -> 0.
+        expr: somsiad_backup_success == 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "nightly backup failed"
+          description: "The last air-backup run had at least one failed step. Check ~/backups/backup.log on the Air."
+
+      - alert: BackupStale
+        # No successful run in >28h (daily schedule + slack), or the metric
+        # disappeared entirely (textfile wiped, node_exporter down).
+        expr: (time() - somsiad_backup_last_run_timestamp) > 100800 or absent(somsiad_backup_last_run_timestamp)
+        for: 1h
+        labels:
+          severity: critical
+        annotations:
+          summary: "nightly backup is stale"
+          description: "No air-backup run recorded in over 28 hours. launchd agent com.melinakrzemowa.air-backup may be unloaded, or the Air was asleep."
+
       - alert: PhoenixScrapeDown
         # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the
         # app is down — either way, investigate).
