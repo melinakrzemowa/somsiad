@@ -79,6 +79,7 @@ KNOWN_PREFIXES = (
     "sribiamelinakrzemowapl-",
     "mooncraft",
     "abyss",
+    "fossilkelostradapl-",
 )
 
 # --- subprocess helpers -----------------------------------------------------

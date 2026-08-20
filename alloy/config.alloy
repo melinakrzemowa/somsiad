@@ -71,6 +71,24 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "abyss"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/fossil.*-web-.*"
+    target_label  = "service"
+    replacement   = "fossil"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/fossil.*-db-.*"
+    target_label  = "service"
+    replacement   = "fossil-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/fossil.*-cron-.*"
+    target_label  = "service"
+    replacement   = "fossil-cron"
+  }
 }
 
 loki.source.docker "containers" {
@@ -169,15 +187,17 @@ prometheus.exporter.blackbox "public_http" {
     module  = "http_2xx"
     labels  = { target = "monitoring" }
   }
-
-  // Bartosz's external sites (hosted elsewhere, behind Cloudflare proxy).
-  // Strict module: a CF challenge page (403) must count as down.
+  // fossil migrated to the Air (2026-08-20) — probed like the other local
+  // services now (tunnel path, lenient module), not as an external site.
   target {
     name    = "fossil"
     address = "https://fossil.kelostrada.pl"
-    module  = "http_2xx_strict"
+    module  = "http_2xx"
     labels  = { target = "fossil" }
   }
+
+  // Bartosz's external sites (hosted elsewhere, behind Cloudflare proxy).
+  // Strict module: a CF challenge page (403) must count as down.
   target {
     name    = "kelostrada"
     address = "https://kelostrada.pl"
