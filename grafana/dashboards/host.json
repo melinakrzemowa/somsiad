@@ -1,5 +1,5 @@
 {
-  "title": "Somsiad — Host",
+  "title": "Somsiad \u2014 Host",
   "uid": "somsiad-host",
   "tags": [
     "somsiad",
@@ -976,114 +976,6 @@
       }
     },
     {
-      "id": 19,
-      "type": "stat",
-      "title": "fossil.kelostrada.pl",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 0,
-        "y": 36
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "expr": "probe_success{target=\"fossil\"}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red"
-                }
-              }
-            },
-            {
-              "type": "value",
-              "options": {
-                "1": {
-                  "text": "UP",
-                  "color": "green"
-                }
-              }
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        }
-      },
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
-      "id": 20,
-      "type": "stat",
-      "title": "fossil — probe latency",
-      "gridPos": {
-        "h": 4,
-        "w": 6,
-        "x": 6,
-        "y": 36
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "targets": [
-        {
-          "expr": "probe_duration_seconds{target=\"fossil\"}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "decimals": 2
-        }
-      },
-      "options": {
-        "graphMode": "area",
-        "textMode": "value",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        }
-      }
-    },
-    {
       "id": 21,
       "type": "stat",
       "title": "kelostrada.pl",
@@ -1156,7 +1048,7 @@
     {
       "id": 22,
       "type": "stat",
-      "title": "kelostrada — probe latency",
+      "title": "kelostrada \u2014 probe latency",
       "gridPos": {
         "h": 4,
         "w": 6,
@@ -1194,7 +1086,7 @@
     {
       "id": 23,
       "type": "timeseries",
-      "title": "External sites — uptime",
+      "title": "External sites \u2014 uptime",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -1207,7 +1099,7 @@
       },
       "targets": [
         {
-          "expr": "probe_success{target=~\"fossil|kelostrada\"}",
+          "expr": "probe_success{target=\"kelostrada\"}",
           "legendFormat": "{{target}}",
           "refId": "A"
         }
@@ -1261,7 +1153,7 @@
     {
       "id": 24,
       "type": "timeseries",
-      "title": "External sites — probe latency",
+      "title": "External sites \u2014 probe latency",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -1274,7 +1166,7 @@
       },
       "targets": [
         {
-          "expr": "probe_duration_seconds{target=~\"fossil|kelostrada\"}",
+          "expr": "probe_duration_seconds{target=\"kelostrada\"}",
           "legendFormat": "{{target}}",
           "refId": "A"
         }
