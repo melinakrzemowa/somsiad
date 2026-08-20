@@ -67,10 +67,14 @@ PROBES = [
     ("monitoring", "https://monitoring.melinakrzemowa.pl"),
     ("fossil", "https://fossil.kelostrada.pl"),
     ("depot", "https://depot.kelostrada.pl"),
+    ("dice", "https://dice.kelostrada.pl/login"),
+    ("api", "https://api.kelostrada.pl"),
+    ("blog-wakacje", "https://blog-wakacje.kelostrada.pl"),
+    ("melinakrzemowa", "https://melinakrzemowa.pl"),
     ("kelostrada", "https://kelostrada.pl"),
 ]
 PHOENIX_SERVICES = ["instagrain", "sribia"]
-STATIC_SERVICES = ["mooncraft", "abyss", "fossil", "depot", "kelostrada"]
+STATIC_SERVICES = ["mooncraft", "abyss", "fossil", "depot", "dice", "api", "blog-wakacje", "melinakrzemowa", "kelostrada"]
 
 # All container name prefixes the report knows about. Used to order rows and
 # to tell "expected" containers from anything new that shows up.
@@ -82,6 +86,10 @@ KNOWN_PREFIXES = (
     "abyss",
     "fossilkelostradapl-",
     "depotkelostradapl-",
+    "dicekelostradapl-",
+    "apikelostradapl-",
+    "blog-wakacjekelostradapl-",
+    "melinakrzemowapl-",
 )
 
 # --- subprocess helpers -----------------------------------------------------

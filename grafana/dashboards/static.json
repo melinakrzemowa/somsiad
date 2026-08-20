@@ -1,5 +1,5 @@
 {
-  "title": "Somsiad — Static Site",
+  "title": "Somsiad \u2014 Static Site",
   "uid": "somsiad-static",
   "tags": [
     "somsiad",
@@ -20,29 +20,8 @@
         "type": "custom",
         "name": "target",
         "label": "Site",
-        "query": "mooncraft,abyss,fossil,kelostrada",
-        "options": [
-          {
-            "text": "mooncraft",
-            "value": "mooncraft",
-            "selected": true
-          },
-          {
-            "text": "abyss",
-            "value": "abyss",
-            "selected": false
-          },
-          {
-            "text": "fossil",
-            "value": "fossil",
-            "selected": false
-          },
-          {
-            "text": "kelostrada",
-            "value": "kelostrada",
-            "selected": false
-          }
-        ],
+        "query": "mooncraft,abyss,fossil,depot,dice,api,blog-wakacje,melinakrzemowa,kelostrada",
+        "options": [],
         "current": {
           "text": "mooncraft",
           "value": "mooncraft"

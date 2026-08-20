@@ -107,6 +107,36 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "depot-cron"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/dice.*-web-.*"
+    target_label  = "service"
+    replacement   = "dice"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/dice.*-db-.*"
+    target_label  = "service"
+    replacement   = "dice-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/apikelostradapl-web-.*"
+    target_label  = "service"
+    replacement   = "api"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/blog-wakacjekelostradapl-web-.*"
+    target_label  = "service"
+    replacement   = "blog-wakacje"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/melinakrzemowapl-web-.*"
+    target_label  = "service"
+    replacement   = "melinakrzemowa"
+  }
 }
 
 loki.source.docker "containers" {
@@ -218,6 +248,30 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://depot.kelostrada.pl"
     module  = "http_2xx"
     labels  = { target = "depot" }
+  }
+  target {
+    name    = "dice"
+    address = "https://dice.kelostrada.pl/login"
+    module  = "http_2xx"
+    labels  = { target = "dice" }
+  }
+  target {
+    name    = "api"
+    address = "https://api.kelostrada.pl"
+    module  = "http_2xx"
+    labels  = { target = "api" }
+  }
+  target {
+    name    = "blog-wakacje"
+    address = "https://blog-wakacje.kelostrada.pl"
+    module  = "http_2xx"
+    labels  = { target = "blog-wakacje" }
+  }
+  target {
+    name    = "melinakrzemowa"
+    address = "https://melinakrzemowa.pl"
+    module  = "http_2xx"
+    labels  = { target = "melinakrzemowa" }
   }
 
   // Bartosz's external sites (hosted elsewhere, behind Cloudflare proxy).
