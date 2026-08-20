@@ -27,7 +27,10 @@ schema_config:
         period: 24h
 
 limits_config:
-  retention_period: 30d
+  # 180d (was 30d, 2026-08-20): measured volume is ~1 MB/day across all
+  # services, so half a year of logs costs ~200 MB — worth it for post-hoc
+  # investigations. Revisit if volume grows 100x.
+  retention_period: 180d
   reject_old_samples: true
   reject_old_samples_max_age: 168h
 
