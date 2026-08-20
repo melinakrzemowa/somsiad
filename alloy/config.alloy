@@ -89,6 +89,24 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "fossil-cron"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/depot.*-web-.*"
+    target_label  = "service"
+    replacement   = "depot"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/depot.*-db-.*"
+    target_label  = "service"
+    replacement   = "depot-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/depot.*-cron-.*"
+    target_label  = "service"
+    replacement   = "depot-cron"
+  }
 }
 
 loki.source.docker "containers" {
@@ -187,13 +205,19 @@ prometheus.exporter.blackbox "public_http" {
     module  = "http_2xx"
     labels  = { target = "monitoring" }
   }
-  // fossil migrated to the Air (2026-08-20) — probed like the other local
-  // services now (tunnel path, lenient module), not as an external site.
+  // fossil + depot migrated to the Air (2026-08-20) — probed like the other
+  // local services now (tunnel path, lenient module), not as external sites.
   target {
     name    = "fossil"
     address = "https://fossil.kelostrada.pl"
     module  = "http_2xx"
     labels  = { target = "fossil" }
+  }
+  target {
+    name    = "depot"
+    address = "https://depot.kelostrada.pl"
+    module  = "http_2xx"
+    labels  = { target = "depot" }
   }
 
   // Bartosz's external sites (hosted elsewhere, behind Cloudflare proxy).
