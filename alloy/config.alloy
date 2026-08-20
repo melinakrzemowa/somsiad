@@ -137,6 +137,24 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "melinakrzemowa"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/kelostradapl-web-.*"
+    target_label  = "service"
+    replacement   = "kelostrada"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/kelostradapl-db-.*"
+    target_label  = "service"
+    replacement   = "kelostrada-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/kelostradapl-cron-.*"
+    target_label  = "service"
+    replacement   = "kelostrada-cron"
+  }
 }
 
 loki.source.docker "containers" {
@@ -274,12 +292,13 @@ prometheus.exporter.blackbox "public_http" {
     labels  = { target = "melinakrzemowa" }
   }
 
-  // Bartosz's external sites (hosted elsewhere, behind Cloudflare proxy).
-  // Strict module: a CF challenge page (403) must count as down.
+  // kelostrada.pl (PrestaShop) migrated to the Air 2026-08-20 — the last site
+  // off seohost. Probed like every other local service. The http_2xx_strict
+  // module above is now unused but kept defined.
   target {
     name    = "kelostrada"
     address = "https://kelostrada.pl"
-    module  = "http_2xx_strict"
+    module  = "http_2xx"
     labels  = { target = "kelostrada" }
   }
 

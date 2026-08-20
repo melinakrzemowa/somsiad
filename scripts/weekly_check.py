@@ -90,6 +90,7 @@ KNOWN_PREFIXES = (
     "apikelostradapl-",
     "blog-wakacjekelostradapl-",
     "melinakrzemowapl-",
+    "kelostradapl-",
 )
 
 # --- subprocess helpers -----------------------------------------------------
