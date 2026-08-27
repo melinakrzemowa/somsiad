@@ -23,6 +23,11 @@ services:
       - --config.file=/etc/alertmanager/alertmanager.yml
       - --storage.path=/alertmanager
       - --log.level=debug
+      # Alert-email links use this as the base URL. Alertmanager's own UI is
+      # not exposed publicly (it has no auth), so point the links at Grafana —
+      # authenticated, and where the alert state is visible anyway. Without
+      # this the links use the container hostname (http://<id>:9093).
+      - --web.external-url=https://monitoring.melinakrzemowa.pl/
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       # Password lives in a separate file on the host (NOT in git).
