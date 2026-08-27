@@ -43,3 +43,12 @@ datasources:
         datasourceUid: prometheus
       lokiSearch:
         datasourceUid: loki
+
+  - name: Alertmanager
+    type: alertmanager
+    uid: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      # our Alertmanager is the prom/alertmanager implementation
+      implementation: prometheus

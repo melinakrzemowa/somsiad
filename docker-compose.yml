@@ -8,6 +8,11 @@ services:
       - --storage.tsdb.retention.time=30d
       - --web.enable-lifecycle
       - --web.enable-remote-write-receiver
+      # Base for the "Source" links in alert emails (default = container id).
+      # Prometheus's own UI is not exposed; Grafana is where to investigate.
+      # route-prefix pinned to / so internal scraping/API paths don't move.
+      - --web.external-url=https://monitoring.melinakrzemowa.pl/
+      - --web.route-prefix=/
     volumes:
       - ./prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
@@ -24,10 +29,12 @@ services:
       - --storage.path=/alertmanager
       - --log.level=debug
       # Alert-email links use this as the base URL. Alertmanager's own UI is
-      # not exposed publicly (it has no auth), so point the links at Grafana —
-      # authenticated, and where the alert state is visible anyway. Without
-      # this the links use the container hostname (http://<id>:9093).
-      - --web.external-url=https://monitoring.melinakrzemowa.pl/
+      # not exposed publicly (it has no auth), so land on Grafana's Alerting
+      # page (the provisioned Alertmanager datasource shows the same alerts).
+      # route-prefix MUST stay / — otherwise the API moves under /alerting and
+      # Prometheus can no longer deliver alerts to alertmanager:9093/api/v2.
+      - --web.external-url=https://monitoring.melinakrzemowa.pl/alerting/
+      - --web.route-prefix=/
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       # Password lives in a separate file on the host (NOT in git).
