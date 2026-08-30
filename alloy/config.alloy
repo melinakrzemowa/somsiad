@@ -155,6 +155,18 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "kelostrada-cron"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/tibiantisnet-web-.*"
+    target_label  = "service"
+    replacement   = "tibiantis"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/tibiantisnet-db-.*"
+    target_label  = "service"
+    replacement   = "tibiantis-db"
+  }
 }
 
 loki.source.docker "containers" {
@@ -287,6 +299,14 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://kelostrada.pl"
     module  = "http_2xx"
     labels  = { target = "kelostrada" }
+  }
+
+  // tibiantis.net — migrated from seohost 2026-08-30.
+  target {
+    name    = "tibiantis"
+    address = "https://tibiantis.net"
+    module  = "http_2xx"
+    labels  = { target = "tibiantis" }
   }
 
   // The Pi (192.168.0.140) is NOT reached from here — Colima's Docker VM
