@@ -167,6 +167,18 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "tibiantis-db"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/cardfightpl-web-.*"
+    target_label  = "service"
+    replacement   = "cardfight"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/cardfightpl-db-.*"
+    target_label  = "service"
+    replacement   = "cardfight-db"
+  }
 }
 
 loki.source.docker "containers" {
@@ -307,6 +319,14 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://tibiantis.net"
     module  = "http_2xx"
     labels  = { target = "tibiantis" }
+  }
+
+  // cardfight.pl — migrated from seohost 2026-08-30.
+  target {
+    name    = "cardfight"
+    address = "https://cardfight.pl"
+    module  = "http_2xx"
+    labels  = { target = "cardfight" }
   }
 
   // The Pi (192.168.0.140) is NOT reached from here — Colima's Docker VM
