@@ -153,3 +153,38 @@ groups:
         annotations:
           summary: "PrestaShop prune is stale"
           description: "No prestashop-prune run recorded in over 28 hours. launchd agent com.melinakrzemowa.prestashop-prune may be unloaded, or the Air was asleep."
+
+  - name: ente
+    interval: 30s
+    rules:
+      - alert: EnteMetricsDown
+        # Museum's own /metrics. Distinct from the blackbox probe: the probe can
+        # pass from the edge while the Go process is wedged behind it.
+        expr: up{job="ente"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Ente museum /metrics unreachable"
+          description: "Prometheus cannot scrape museum on {{ $labels.instance }}. Photos may still serve; check `docker compose logs museum` in ~/services/photos.kelostrada.pl."
+
+      - alert: PhotoLibraryDiskLow
+        # The photo library is the only unbounded-growth thing on this host, and
+        # it shares the APFS container with every other service. Warn with room
+        # to act — 50 GB is weeks of headroom at family-photo rates.
+        expr: node_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"} < 50e9
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Air disk below 50 GB free"
+          description: "{{ $value | humanize1024 }}B free on /System/Volumes/Data. The Ente library at ~/services/photos.kelostrada.pl/minio-data is the likely grower; ~/backups also accumulates."
+
+      - alert: PhotoLibraryDiskCritical
+        expr: node_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"} < 20e9
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Air disk below 20 GB free"
+          description: "{{ $value | humanize1024 }}B free on /System/Volumes/Data. MinIO will start rejecting uploads and Postgres can wedge. Free space now."
