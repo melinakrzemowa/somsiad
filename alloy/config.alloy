@@ -179,6 +179,30 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "cardfight-db"
   }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/photoskelostradapl-museum-.*"
+    target_label  = "service"
+    replacement   = "ente-museum"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/photoskelostradapl-web-.*"
+    target_label  = "service"
+    replacement   = "ente-web"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/photoskelostradapl-postgres-.*"
+    target_label  = "service"
+    replacement   = "ente-db"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/photoskelostradapl-minio-.*"
+    target_label  = "service"
+    replacement   = "ente-minio"
+  }
 }
 
 loki.source.docker "containers" {
@@ -327,6 +351,36 @@ prometheus.exporter.blackbox "public_http" {
     address = "https://cardfight.pl"
     module  = "http_2xx"
     labels  = { target = "cardfight" }
+  }
+
+  // Ente (self-hosted photos), added 2026-09-17. Four hostnames; the two
+  // back-end ones are probed at real health endpoints rather than "/", which
+  // returns 404 (museum has no route there) and 403 (MinIO refuses an
+  // unauthenticated bucket listing). A 403 would pass the lenient module but
+  // then trip ProbeChallenged, which is meant to catch edge-served challenges.
+  target {
+    name    = "ente-photos"
+    address = "https://photos.kelostrada.pl"
+    module  = "http_2xx"
+    labels  = { target = "ente-photos" }
+  }
+  target {
+    name    = "ente-albums"
+    address = "https://album.kelostrada.pl"
+    module  = "http_2xx"
+    labels  = { target = "ente-albums" }
+  }
+  target {
+    name    = "ente-api"
+    address = "https://photos-api.kelostrada.pl/ping"
+    module  = "http_2xx"
+    labels  = { target = "ente-api" }
+  }
+  target {
+    name    = "ente-s3"
+    address = "https://photos-s3.kelostrada.pl/minio/health/live"
+    module  = "http_2xx"
+    labels  = { target = "ente-s3" }
   }
 
   // The Pi (192.168.0.140) is NOT reached from here — Colima's Docker VM
