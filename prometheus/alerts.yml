@@ -102,3 +102,54 @@ groups:
         annotations:
           summary: "{{ $labels.job }} 5xx rate >5%"
           description: "Phoenix app {{ $labels.job }} has been returning 5xx for >5% of requests over 10m."
+
+  - name: prestashop
+    interval: 1m
+    rules:
+      # All four metrics come from the nightly prestashop-prune run (launchd
+      # 03:00, script in the air-infra repo) via the node_exporter textfile
+      # dir, so they only refresh once a day — these alerts detect a trend,
+      # not an incident, and can lag up to 24h by design.
+      - alert: PrestashopDbOversized
+        # The `sklep` DB sits around 400 MB pruned. It reached 8.7 GB by
+        # 2026-09-17 because ps_facetedsearch cached every crawled filter
+        # permutation forever, and backup.sh was dumping all of it to the Pi
+        # nightly. 2 GB is ~5x normal: enough headroom for real catalogue
+        # growth, low enough to catch a recurrence long before it hurts.
+        expr: somsiad_prestashop_db_bytes > 2e9
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "kelostrada.pl database is oversized"
+          description: "The sklep database is over 2 GB. Check which table grew: the usual culprit is pr_layered_filter_block refilling because crawlers are hitting ?q= filter URLs again — verify the Disallow rules are still in html/robots.txt (PrestaShop's admin overwrites that file when you regenerate it)."
+
+      - alert: PrestashopFilterCacheRunaway
+        # The prune script truncates this cache above 30k rows, so a sustained
+        # breach means the crawl is outpacing the nightly cap.
+        expr: somsiad_prestashop_filter_block_rows > 100000
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "faceted-search cache is running away"
+          description: "pr_layered_filter_block is over 100k rows despite the nightly 30k cap, so something is crawling ?q= filter URLs faster than the prune can clear them. Check robots.txt and the top client IPs in the kelostradapl-web-1 access log."
+
+      - alert: PrestashopPruneFailed
+        expr: somsiad_prestashop_prune_success == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PrestaShop prune failed"
+          description: "The last prestashop-prune run had a failed step. Check ~/backups/prestashop-prune.log on the Air."
+
+      - alert: PrestashopPruneStale
+        # >28h (daily schedule + slack), or the metric vanished entirely.
+        expr: (time() - somsiad_prestashop_prune_last_run_timestamp) > 100800 or absent(somsiad_prestashop_prune_last_run_timestamp)
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "PrestaShop prune is stale"
+          description: "No prestashop-prune run recorded in over 28 hours. launchd agent com.melinakrzemowa.prestashop-prune may be unloaded, or the Air was asleep."
