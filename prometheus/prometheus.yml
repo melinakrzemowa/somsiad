@@ -97,6 +97,17 @@ scrape_configs:
         target_label: __name__
         replacement: '${1}'
 
+  # Ente museum (self-hosted photos). Go service, not Phoenix — metrics are
+  # plain Go/Gin names, so no prom_ex prefix stripping is needed. Port 4017 on
+  # the Air's loopback maps to the container's 2112; it is deliberately not in
+  # the Cloudflare tunnel. Distinct from the blackbox probe: the edge probe can
+  # pass while the Go process is wedged behind it.
+  - job_name: ente
+    metrics_path: /metrics
+    static_configs:
+      - targets: [host.docker.internal:4017]
+        labels: { service: ente }
+
   # cAdvisor and blackbox metrics arrive via remote_write from Alloy
   # (see alloy/config.alloy). They show up under their own metric names
   # (container_*, probe_*) without an explicit scrape job here.
