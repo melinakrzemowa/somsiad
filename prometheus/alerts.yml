@@ -72,15 +72,32 @@ groups:
           description: "Container has not made progress for 5+ minutes."
 
       - alert: HighContainerMemory
-        # cAdvisor exposes container_memory_usage_bytes / container_spec_memory_limit_bytes.
-        # Alert when a container is above 90% of its limit (only fires if a limit is set).
-        expr: (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.9 and container_spec_memory_limit_bytes > 0
+        # Working set, NOT container_memory_usage_bytes. usage_bytes counts page
+        # cache, which the kernel reclaims on demand — a container doing steady
+        # disk writes fills its cgroup to 100% with cache by design, so usage_bytes
+        # fires on perfectly healthy containers. Working set (usage minus inactive
+        # file cache) is what the OOM killer actually weighs.
+        # Seen 2026-09-18 during an Ente photo import: MinIO at 100% usage_bytes,
+        # 48% working set, 34% RSS, never OOM-killed.
+        #
+        # cAdvisor under Colima emits only the cgroup id, never `name`, so the old
+        # annotation rendered as "Container  >90%" with a blank. Join
+        # docker_container_info (value 1, carries `name`) to say which one it is.
+        # `limit > 0` drops unlimited containers, whose ratio would be +Inf.
+        expr: |
+          (
+            (
+              container_memory_working_set_bytes{container_id!=""}
+                / (container_spec_memory_limit_bytes{container_id!=""} > 0)
+            ) > 0.9
+          )
+          * on (container_id) group_left(name) docker_container_info
         for: 10m
         labels:
           severity: warning
         annotations:
           summary: "Container {{ $labels.name }} >90% memory"
-          description: "Memory usage on container {{ $labels.name }} has been above 90% for 10m."
+          description: "Working set on {{ $labels.name }} has been above 90% of its memory limit for 10m ({{ $value | humanizePercentage }}). This excludes reclaimable page cache, so it is real pressure — check for a leak or raise mem_limit."
 
   - name: phoenix
     interval: 1m
