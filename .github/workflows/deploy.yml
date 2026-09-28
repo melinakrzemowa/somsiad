@@ -13,6 +13,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A broken rule file must never reach the Air: Prometheus would refuse
+      # the reload and keep evaluating the old rules without a word. Same
+      # images as docker-compose.yml.
+      - name: Validate Prometheus and Alertmanager config, run rule tests
+        run: |
+          docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint promtool \
+            prom/prometheus:v3.1.0 check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint sh \
+            prom/prometheus:v3.1.0 -c 'promtool test rules /etc/prometheus/tests/*.yml'
+          docker run --rm -v "$PWD/alertmanager:/etc/alertmanager:ro" --entrypoint amtool \
+            prom/alertmanager:v0.28.0 check-config /etc/alertmanager/alertmanager.yml
+
       - name: Install cloudflared
         run: |
           curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cloudflared.deb

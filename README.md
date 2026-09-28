@@ -13,6 +13,8 @@ Single-host observability stack for the services on the MacBook Air (`ssh air`).
 | `mooncraft.melinakrzemowa.pl` | nginx static | uptime + nginx access logs |
 | `sribia.melinakrzemowa.pl` | Phoenix (Abyss) | uptime + Phoenix metrics + BEAM + logs + traces |
 | `insta.melinakrzemowa.pl` | Phoenix (Instagrain) | uptime + Phoenix metrics + BEAM + logs + traces |
+| `ania.kelostrada.pl` | Phoenix (aniasienudzi) | `/readyz` probe (site + DB) + Phoenix/BEAM/Ecto/Oban metrics (PromEx on loopback 4019) + JSON logs (`service="aniasienudzi"`) |
+| The Colima VM | Alloy's node exporter (meminfo) | VM memory available (no swap) |
 | All Docker containers on the Air | Docker socket | container CPU/RAM, stdout/stderr logs |
 
 Public endpoints are probed every 30s via Alloy's blackbox exporter. Container metrics come from Alloy's cAdvisor exporter. Logs are collected by Alloy via Docker socket discovery — no agent in each app. Traces are received over OTLP (4317/gRPC, 4318/HTTP) on the Air's loopback.
@@ -25,6 +27,7 @@ docker-compose.yml             # the stack
 prometheus/
   prometheus.yml               # scrape jobs + alert rules ref + alertmanager target
   alerts.yml                   # uptime / phoenix / container alert rules
+  tests/                       # promtool unit tests for alerts.yml (run by the deploy workflow)
 alertmanager/
   alertmanager.yml             # email routing, hardcoded recipient, password-from-file
   smtp_password                # gitignored, lives only on the host (mode 600)
@@ -153,6 +156,20 @@ Default rules:
 - **ContainerRestartLoop** — container made no progress for 5m → warning
 - **HighContainerMemory** — >90% of memory limit for 10m → warning
 - **PhoenixHighErrorRate** — 5xx > 5% over 10m with non-trivial traffic → warning
+- **ColimaMemoryLow** — under 8% of the Colima VM's memory available (MemAvailable) for 10m → warning. The VM has no swap, so this is the last warning before the OOM killer picks a container from any stack
+- **aniasienudzi** (group `aniasienudzi`; site/DB down, scrape down, 5xx and container memory are the shared rules above):
+  - **AniaHighLatency** — API p95 > 500 ms over 15m (at least 30 requests) → warning
+  - **AniaObanBacklog** — > 500 available jobs in a queue for 5m → warning
+  - **AniaObanQueueStuck** — a queue has had jobs waiting for 10m and finished none, for 5m more → warning
+  - **AniaMailDeliveryFailing** — `ania_mailer_failures_total` grew within the last hour → warning
+  - **AniaMailerDisabled** — the mailer has had no SMTP configuration for 7 days → info (routed with a 72h repeat)
+  - **AniaPushVapidFailing**, **AniaDatabaseLarge** (> 5 GB), **AniaRetentionStale** (> 26h since the last successful run) → warning; silent until the app release that adds their metric
+
+Unit tests for the rules live in `prometheus/tests/`. The deploy workflow runs them, `promtool check config` and `amtool check-config` before it syncs anything, so a broken rule file never reaches the Air. The same locally:
+```sh
+docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v3.1.0 check config /etc/prometheus/prometheus.yml
+docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint sh prom/prometheus:v3.1.0 -c 'promtool test rules /etc/prometheus/tests/*.yml'
+```
 
 To silence or test from the host:
 ```sh

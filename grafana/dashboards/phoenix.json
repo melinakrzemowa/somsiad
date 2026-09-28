@@ -13,7 +13,7 @@
         "name": "service",
         "type": "query",
         "datasource": { "type": "prometheus", "uid": "prometheus" },
-        "query": "label_values(up{job=~\"instagrain|sribia\"}, job)",
+        "query": "label_values(up{job=~\"instagrain|sribia|aniasienudzi\"}, job)",
         "refresh": 1,
         "current": { "text": "instagrain", "value": "instagrain" }
       }
@@ -139,6 +139,53 @@
         { "expr": "{service=\"$service\"}", "refId": "A" }
       ],
       "options": { "showTime": true, "wrapLogMessage": true }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Oban: jobs waiting to run (by queue)",
+      "description": "Available (ready, not started) jobs per queue. Apps without Oban show no data.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (queue) (oban_queue_length_count{job=\"$service\", state=\"available\"})", "legendFormat": "{{queue}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Oban: jobs finished per minute",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (queue, state) (rate(oban_job_processing_duration_milliseconds_count{job=\"$service\"}[5m])) * 60", "legendFormat": "{{queue}} {{state}}", "refId": "A" },
+        { "expr": "sum by (queue) (rate(oban_job_exception_duration_milliseconds_count{job=\"$service\"}[5m])) * 60", "legendFormat": "{{queue}} exception", "refId": "B" }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Oban: job wait before start, p95",
+      "description": "Time from scheduled to started. The histogram's top bucket is 20 s, so anything slower reads as 20 s.",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (queue, le) (rate(oban_job_queue_time_milliseconds_bucket{job=\"$service\"}[15m])))", "legendFormat": "{{queue}}", "refId": "A" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Container memory: working set vs limit (MB)",
+      "description": "cAdvisor, joined to container names through docker_container_info. Only apps whose containers get a service label in prometheus.yml (docker-names job) show data.",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (name) (container_memory_working_set_bytes{container_id!=\"\"} * on (container_id) group_left(name) docker_container_info{service=~\"$service|$service-db\"}) / 1024 / 1024", "legendFormat": "{{name}}", "refId": "A" },
+        { "expr": "sum by (name) (container_spec_memory_limit_bytes{container_id!=\"\"} * on (container_id) group_left(name) docker_container_info{service=~\"$service|$service-db\"}) / 1024 / 1024", "legendFormat": "{{name}} limit", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "decmbytes" } }
     }
   ]
 }

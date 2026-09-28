@@ -203,6 +203,21 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "ente-minio"
   }
+  // aniasienudzi (compose project `ania`). ania-app-* also matches the
+  // migrate one-off that each deploy runs (ania-app-run-*). The same names
+  // label docker_container_info for cAdvisor joins (prometheus.yml).
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/ania-app-.*"
+    target_label  = "service"
+    replacement   = "aniasienudzi"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/ania-db-.*"
+    target_label  = "service"
+    replacement   = "aniasienudzi-db"
+  }
 }
 
 loki.source.docker "containers" {
@@ -251,13 +266,18 @@ otelcol.exporter.otlp "tempo" {
 // =============================================================================
 
 prometheus.exporter.blackbox "public_http" {
-  // One module for every target, all of which live on this host behind the
-  // Cloudflare tunnel. The somsiad-blackbox User-Agent matches a Cloudflare
-  // WAF skip rule, so probes bypass the bot challenge and reach the origin —
-  // without it a challenged probe gets an edge-served 403 and never tests the
-  // site at all (see the ProbeChallenged alert). 401/403 stay in the valid
-  // list for anything later put behind Cloudflare Access.
-  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403], headers: { User-Agent: somsiad-blackbox/1.0 } } } } }"
+  // Every target lives on this host behind the Cloudflare tunnel; http_2xx
+  // is the lenient module for plain sites. The somsiad-blackbox User-Agent
+  // (both modules) matches a Cloudflare WAF skip rule, so probes bypass the
+  // bot challenge and reach the origin — without it a challenged probe gets
+  // an edge-served 403 and never tests the site at all (see the
+  // ProbeChallenged alert). 401/403 stay in http_2xx's valid list for
+  // anything later put behind Cloudflare Access.
+  //
+  // http_ready is for readiness endpoints: only a 200 whose body says
+  // "status":"ok" passes, so a 503 (database down, migrations pending), an
+  // edge-served 403 or a redirect to a login page all count as down.
+  config = "{ modules: { http_2xx: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, fail_if_not_ssl: false, valid_status_codes: [200, 301, 302, 401, 403], headers: { User-Agent: somsiad-blackbox/1.0 } } }, http_ready: { prober: http, timeout: 5s, http: { preferred_ip_protocol: ip4, valid_status_codes: [200], fail_if_body_not_matches_regexp: ['\"status\":\"ok\"'], headers: { User-Agent: somsiad-blackbox/1.0 } } } } }"
 
   target {
     name    = "mooncraft"
@@ -383,6 +403,16 @@ prometheus.exporter.blackbox "public_http" {
     labels  = { target = "ente-s3" }
   }
 
+  // aniasienudzi, added 2026-09-29. Probed at /readyz, which answers 503
+  // when the database is unreachable or a migration is pending, so
+  // ServiceDown covers "site down" and "database down" alike.
+  target {
+    name    = "aniasienudzi"
+    address = "https://ania.kelostrada.pl/readyz"
+    module  = "http_ready"
+    labels  = { target = "aniasienudzi" }
+  }
+
   // The Pi (192.168.0.140) is NOT reached from here — Colima's Docker VM
   // sits on a NAT subnet that can reach the internet but not LAN peers.
   // Air → Pi reachability is checked by air-watchdog.{py,sh} via launchd
@@ -397,6 +427,37 @@ prometheus.scrape "blackbox" {
   // module's 5s probe timeout.
   scrape_interval = "30s"
   scrape_timeout  = "10s"
+}
+
+// =============================================================================
+// METRICS — Colima VM memory. Every container shares the one Colima VM, which
+// has no swap. /proc/meminfo is VM-wide even inside this container, so the
+// embedded node exporter with only the meminfo collector reports the VM's
+// MemAvailable (the ColimaMemoryLow alert). The macOS host itself is the
+// separate node_exporter job "host" in prometheus.yml.
+// =============================================================================
+
+prometheus.exporter.unix "colima" {
+  set_collectors = ["meminfo"]
+}
+
+discovery.relabel "colima" {
+  targets = prometheus.exporter.unix.colima.targets
+
+  rule {
+    target_label = "job"
+    replacement  = "colima"
+  }
+  rule {
+    target_label = "instance"
+    replacement  = "colima-vm"
+  }
+}
+
+prometheus.scrape "colima" {
+  targets         = discovery.relabel.colima.output
+  forward_to      = [prometheus.remote_write.local.receiver]
+  scrape_interval = "30s"
 }
 
 prometheus.remote_write "local" {

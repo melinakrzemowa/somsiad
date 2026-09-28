@@ -12,6 +12,13 @@ route:
   group_wait: 30s
   group_interval: 5m
   repeat_interval: 4h
+  routes:
+    # severity=info alerts are reminders about a state that lasts days (e.g.
+    # AniaMailerDisabled), not incidents: e-mail once, then every 3 days while
+    # it lasts. (Alertmanager keeps its notification log for 120h, so a longer
+    # repeat_interval would not hold anyway.)
+    - matchers: [severity="info"]
+      repeat_interval: 72h
 
 receivers:
   - name: email

@@ -31,6 +31,21 @@ scrape_configs:
     scrape_interval: 30s
     static_configs:
       - targets: [docker-names:9101]
+    metric_relabel_configs:
+      # A `service` label for containers whose compose names do not say which
+      # app they belong to (the same names as the Loki `service` label in
+      # alloy/config.alloy), so cAdvisor series joined through this metric can
+      # be grouped per app: `* on (container_id) group_left(name, service)
+      # docker_container_info`. The migrate one-off (ania-app-run-*) counts as
+      # the app.
+      - source_labels: [name]
+        regex: 'ania-app-.*'
+        target_label: service
+        replacement: aniasienudzi
+      - source_labels: [name]
+        regex: 'ania-db-.*'
+        target_label: service
+        replacement: aniasienudzi-db
 
   - job_name: cadvisor
     scrape_interval: 30s
@@ -94,6 +109,23 @@ scrape_configs:
     metric_relabel_configs:
       - source_labels: [__name__]
         regex: 'abyss_prom_ex_(.+)'
+        target_label: __name__
+        replacement: '${1}'
+
+  # aniasienudzi (ania.kelostrada.pl, repo kelostrada/aniasienudzi). PromEx
+  # runs on its own listener, published on the Air's 127.0.0.1:4019 only and
+  # never in the tunnel (the app itself is 4018). PromEx names are
+  # ania_prom_ex_*; the app's own counters (ania_mailer_*, ania_emails_*,
+  # ania_integration_*, later ania_push_*, ania_retention_*, ania_db_*) have no
+  # prom_ex part and pass through unchanged.
+  - job_name: aniasienudzi
+    metrics_path: /metrics
+    static_configs:
+      - targets: [host.docker.internal:4019]
+        labels: { service: aniasienudzi }
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: 'ania_prom_ex_(.+)'
         target_label: __name__
         replacement: '${1}'
 

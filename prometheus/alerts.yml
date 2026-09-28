@@ -51,10 +51,14 @@ groups:
       - alert: PhoenixScrapeDown
         # If a Phoenix app's /metrics is unreachable, prom_ex is down (or the
         # app is down — either way, investigate).
-        expr: up{job=~"instagrain|sribia"} == 0
+        # `target` names the blackbox target of the same app (the job names
+        # match), so the ServiceDown inhibit rule in alertmanager.yml can
+        # suppress this one while the whole site is down.
+        expr: up{job=~"instagrain|sribia|aniasienudzi"} == 0
         for: 5m
         labels:
           severity: warning
+          target: '{{ $labels.job }}'
         annotations:
           summary: "{{ $labels.job }} /metrics unreachable"
           description: "Prometheus cannot scrape {{ $labels.job }} on {{ $labels.instance }}."
@@ -99,6 +103,24 @@ groups:
           summary: "Container {{ $labels.name }} >90% memory"
           description: "Working set on {{ $labels.name }} has been above 90% of its memory limit for 10m ({{ $value | humanizePercentage }}). This excludes reclaimable page cache, so it is real pressure — check for a leak or raise mem_limit."
 
+      - alert: ColimaMemoryLow
+        # Every container runs in the one Colima VM, which has no swap: when it
+        # runs out, the kernel OOM killer picks a victim from any stack. This is
+        # MemAvailable (the kernel's estimate of what can still be allocated
+        # without swapping) from Alloy's embedded node exporter, meminfo only
+        # (job "colima" in alloy/config.alloy; /proc/meminfo is VM-wide even
+        # inside a container). Not cAdvisor's root cgroup: its working set
+        # leaves out the kernel memory no cgroup is charged for, ~350 MiB here
+        # (2026-09-29: 83% used by working set, 89% by MemAvailable), so it
+        # would fire only just before the OOM killer.
+        expr: node_memory_MemAvailable_bytes{job="colima"} / node_memory_MemTotal_bytes{job="colima"} < 0.08
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Colima VM memory low ({{ $value | humanizePercentage }} available)"
+          description: "Less than 8% of the Colima VM's memory has been available for 10m, and the VM has no swap, so the next spike OOM-kills a container of any stack. The Overview dashboard's memory panel shows the biggest containers. Remedy order: trim the shop's and fossil's MariaDB buffer pools, then add a 1-2 GB swap file inside the VM, only then give Colima more memory (macOS itself needs ~1.5-2 GB)."
+
   - name: phoenix
     interval: 1m
     rules:
@@ -116,9 +138,132 @@ groups:
         for: 10m
         labels:
           severity: warning
+          target: '{{ $labels.job }}'
         annotations:
           summary: "{{ $labels.job }} 5xx rate >5%"
           description: "Phoenix app {{ $labels.job }} has been returning 5xx for >5% of requests over 10m."
+
+  # aniasienudzi (ania.kelostrada.pl, repo kelostrada/aniasienudzi: PLAN §9.5,
+  # backend §14.3). Covered by the shared rules above: site down, database
+  # down and pending migrations by ServiceDown (the probe is /readyz, which
+  # answers 503 for all three); /metrics unreachable by PhoenixScrapeDown; the
+  # 5xx ratio by PhoenixHighErrorRate; a container near its mem_limit by
+  # HighContainerMemory. Rules on a series a later app release adds
+  # (ania_push_failures_total, ania_db_table_bytes,
+  # ania_retention_last_success_timestamp_seconds) stay silent until it exists.
+  - name: aniasienudzi
+    interval: 1m
+    rules:
+      - alert: AniaHighLatency
+        # p95 of the API over 15 minutes. The histogram has a bucket boundary
+        # at 500 ms, so this reads "more than 5% of API requests took over
+        # 500 ms". The floor of 30 requests per window keeps a few slow
+        # requests on a quiet night from paging.
+        expr: |
+          histogram_quantile(0.95,
+            sum by (job, le) (rate(phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path=~"/api/.*"}[15m]))
+          ) > 500
+          and on (job)
+          sum by (job) (increase(phoenix_http_request_duration_milliseconds_count{job="aniasienudzi", path=~"/api/.*"}[15m])) >= 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi API p95 latency above 500 ms"
+          description: "The 95th percentile of API requests has been {{ $value | humanize }} ms over the last 15m (spec target: under 300 ms). Phoenix App dashboard (service aniasienudzi): latency, Oban and BEAM memory; slow queries (over 200 ms) are logged with their source."
+
+      - alert: AniaObanBacklog
+        # Jobs ready to run piling up in one queue. The app's ObanBacklog
+        # plugin counts the jobs still to run by queue and state every 30 s.
+        expr: sum by (job, queue) (oban_queue_length_count{job="aniasienudzi", state="available"}) > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi Oban queue {{ $labels.queue }} has {{ $value }} jobs waiting"
+          description: "More than 500 jobs have been available (ready, not started) in queue {{ $labels.queue }} for 5m. Check Oban Web under /admin and the app logs for the worker that is slow or failing."
+
+      - alert: AniaObanQueueStuck
+        # Jobs waiting in a queue for 10+ minutes while not one job of that
+        # queue finished: the queue is paused, its workers hang, or long jobs
+        # hold every slot. This stands in for "oldest job older than 5
+        # minutes": the job wait histogram tops out at 20 s, so it cannot
+        # measure minutes.
+        expr: |
+          min_over_time(sum by (job, queue) (oban_queue_length_count{job="aniasienudzi", state="available"})[10m:1m]) > 0
+          unless on (job, queue)
+          sum by (job, queue) (increase({__name__=~"oban_job_(processing|exception)_duration_milliseconds_count", job="aniasienudzi"}[10m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi Oban queue {{ $labels.queue }} is not moving"
+          description: "Queue {{ $labels.queue }} has had jobs waiting for 15m and finished none of them. Check Oban Web under /admin (is the queue paused, which jobs are executing) and the app logs."
+
+      - alert: AniaMailDeliveryFailing
+        # Every failed attempt counts (mail jobs retry with backoff). A mailer
+        # without SMTP credentials discards mail instead of failing, so it stays
+        # quiet here; see AniaMailerDisabled.
+        expr: increase(ania_mailer_failures_total{job="aniasienudzi"}[1h]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi cannot send e-mail"
+          description: "{{ $value | humanize }} e-mail send(s) failed in the last hour, so login codes may not arrive. The app logs 'mail: <template> failed (job <id>): <reason>' and the error is in /admin/errors: a 535 reply means wrong credentials, a timeout a blocked port. Runbook: 'When mail does not arrive' in the aniasienudzi docs/RUNBOOK.md."
+
+      - alert: AniaMailerDisabled
+        # The mailer has had no complete SMTP configuration for a whole week,
+        # so nobody receives a login code by e-mail. The gauge arrives with the
+        # M1 release, so this cannot fire before M1. max_over_time rather than
+        # `for: 7d`: every deploy restarts the app, and one missed scrape would
+        # reset a pending `for`. The offset clause waits until the series is a
+        # week old.
+        expr: |
+          max by (job) (max_over_time(ania_integration_enabled{job="aniasienudzi", integration="mailer"}[7d])) == 0
+          and on (job)
+          max by (job) (present_over_time(ania_integration_enabled{job="aniasienudzi", integration="mailer"}[1h] offset 7d)) == 1
+        for: 1h
+        labels:
+          severity: info
+        annotations:
+          summary: "aniasienudzi mailer disabled for over a week"
+          description: "The mailer has been disabled (no complete SMTP_* / MAIL_FROM group in the Air's .env) for 7+ days: sign-in e-mails are dropped. Fill in the SMTP values and run `docker compose up -d app` in ~/services/ania.kelostrada.pl; /readyz then shows \"mailer\":\"smtp\" (aniasienudzi docs/RUNBOOK.md, Email)."
+
+      - alert: AniaPushVapidFailing
+        # Push services answer 400/401/403 to our VAPID signature: the key pair
+        # or VAPID_SUBJECT is wrong or was rotated, so no push is delivered.
+        # The counter arrives with web push (aniasienudzi #114) and starts at 0.
+        expr: increase(ania_push_failures_total{job="aniasienudzi", reason="vapid"}[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi push rejected (VAPID)"
+          description: "{{ $value | humanize }} push(es) were rejected for their VAPID signature in the last 15m. Check VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT in the Air's .env."
+
+      - alert: AniaDatabaseLarge
+        # Table sizes come from the weekly DbHealth job (aniasienudzi #188),
+        # so this takes each table's last value of the past 8 days: a deploy
+        # restarts the app, which drops the gauge until the next Monday run.
+        expr: sum by (job) (last_over_time(ania_db_table_bytes{job="aniasienudzi"}[8d])) > 5e9
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi database is over 5 GB"
+          description: "The aniasienudzi tables total {{ $value | humanize1024 }}B. Find the table that grew (ania_db_table_bytes by table) and check the Retention cron; the database is dumped to the Pi every night, so size costs backup time too."
+
+      - alert: AniaRetentionStale
+        # The nightly Retention cron (02:30 Europe/Warsaw, aniasienudzi #188)
+        # sets ania_retention_last_success_timestamp_seconds after each
+        # successful run (and at boot). last_over_time over 7 days bridges
+        # deploys.
+        expr: time() - max by (job) (last_over_time(ania_retention_last_success_timestamp_seconds{job="aniasienudzi"}[7d])) > 26 * 3600
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "aniasienudzi retention has not run for over 26 hours"
+          description: "The last successful Retention run was {{ $value | humanizeDuration }} ago. Personal data past its retention period is being kept. Check Oban Web under /admin (maintenance queue) and the app logs for Ania.Maintenance.Workers.Retention."
 
   - name: prestashop
     interval: 1m

@@ -1,0 +1,251 @@
+# promtool unit tests for the aniasienudzi rules, ColimaMemoryLow and the
+# PhoenixScrapeDown target label. Run from the repo root:
+#   docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint promtool \
+#     prom/prometheus:v3.1.0 test rules /etc/prometheus/tests/aniasienudzi.test.yml
+# The deploy workflow runs them before it syncs anything to the Air.
+rule_files:
+  - ../alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  # The /readyz probe failing (503 or unreachable) for 2 minutes.
+  - interval: 30s
+    input_series:
+      - series: 'probe_success{target="aniasienudzi"}'
+        values: '1 1 0 0 0 0 0 0 0 0'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: ServiceDown
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: ServiceDown
+        exp_alerts:
+          - exp_labels: { severity: critical, target: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi is down"
+              description: "HTTP probe to aniasienudzi has failed for 2+ minutes."
+
+  # /metrics unreachable: carries target=<job>, which the ServiceDown inhibit
+  # rule in alertmanager.yml matches on.
+  - interval: 1m
+    input_series:
+      - series: 'up{job="aniasienudzi", instance="host.docker.internal:4019", service="aniasienudzi"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: PhoenixScrapeDown
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              target: aniasienudzi
+              job: aniasienudzi
+              instance: host.docker.internal:4019
+              service: aniasienudzi
+            exp_annotations:
+              summary: "aniasienudzi /metrics unreachable"
+              description: "Prometheus cannot scrape aniasienudzi on host.docker.internal:4019."
+
+  # Colima VM: 400 MiB available of ~5.8 GiB fires, 700 MiB does not.
+  - interval: 1m
+    input_series:
+      - series: 'node_memory_MemTotal_bytes{job="colima", instance="colima-vm"}'
+        values: '6197219328x20'
+      - series: 'node_memory_MemAvailable_bytes{job="colima", instance="colima-vm"}'
+        values: '734003200x5 419430400x15'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ColimaMemoryLow
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: ColimaMemoryLow
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: ColimaMemoryLow
+        exp_alerts:
+          - exp_labels: { severity: warning, job: colima, instance: colima-vm }
+            exp_annotations:
+              summary: "Colima VM memory low (6.768% available)"
+              description: "Less than 8% of the Colima VM's memory has been available for 10m, and the VM has no swap, so the next spike OOM-kills a container of any stack. The Overview dashboard's memory panel shows the biggest containers. Remedy order: trim the shop's and fossil's MariaDB buffer pools, then add a 1-2 GB swap file inside the VM, only then give Colima more memory (macOS itself needs ~1.5-2 GB)."
+
+  # API p95 latency: 10 requests a minute, 2 of them between 500 ms and 1 s,
+  # so p95 lands in (500, 1000]. Slow non-API requests (the SPA shell) do not
+  # count.
+  - interval: 1m
+    input_series:
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="100"}'
+        values: '0+8x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="500"}'
+        values: '0+8x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="1000"}'
+        values: '0+10x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="+Inf"}'
+        values: '0+10x30'
+      - series: 'phoenix_http_request_duration_milliseconds_count{job="aniasienudzi", path="/api/v1/me", status="200"}'
+        values: '0+10x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/*path", status="200", le="500"}'
+        values: '0x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/*path", status="200", le="+Inf"}'
+        values: '0+100x30'
+      - series: 'phoenix_http_request_duration_milliseconds_count{job="aniasienudzi", path="/*path", status="200"}'
+        values: '0+100x30'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: AniaHighLatency
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi API p95 latency above 500 ms"
+              description: "The 95th percentile of API requests has been 875 ms over the last 15m (spec target: under 300 ms). Phoenix App dashboard (service aniasienudzi): latency, Oban and BEAM memory; slow queries (over 200 ms) are logged with their source."
+
+  # The same latency profile at 1 request a minute stays under the floor.
+  - interval: 1m
+    input_series:
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="500"}'
+        values: '0+0.5x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="1000"}'
+        values: '0+1x30'
+      - series: 'phoenix_http_request_duration_milliseconds_bucket{job="aniasienudzi", path="/api/v1/me", status="200", le="+Inf"}'
+        values: '0+1x30'
+      - series: 'phoenix_http_request_duration_milliseconds_count{job="aniasienudzi", path="/api/v1/me", status="200"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: AniaHighLatency
+        exp_alerts: []
+
+  # Oban: a backlog of 600 in one queue; a queue with jobs waiting that
+  # finishes none (mailers) against one that keeps finishing jobs (default).
+  - interval: 1m
+    input_series:
+      - series: 'oban_queue_length_count{job="aniasienudzi", name="Oban", queue="geo", state="available"}'
+        values: '600x20'
+      - series: 'oban_job_processing_duration_milliseconds_count{job="aniasienudzi", name="Oban", queue="geo", state="success", worker="W"}'
+        values: '0+50x20'
+      - series: 'oban_queue_length_count{job="aniasienudzi", name="Oban", queue="mailers", state="available"}'
+        values: '3x30'
+      - series: 'oban_job_processing_duration_milliseconds_count{job="aniasienudzi", name="Oban", queue="mailers", state="success", worker="W"}'
+        values: '7x30'
+      - series: 'oban_queue_length_count{job="aniasienudzi", name="Oban", queue="default", state="available"}'
+        values: '3x30'
+      - series: 'oban_job_exception_duration_milliseconds_count{job="aniasienudzi", name="Oban", queue="default", state="failure", worker="W", kind="error", error="E"}'
+        values: '0+1x30'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: AniaObanBacklog
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: AniaObanBacklog
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi, queue: geo }
+            exp_annotations:
+              summary: "aniasienudzi Oban queue geo has 600 jobs waiting"
+              description: "More than 500 jobs have been available (ready, not started) in queue geo for 5m. Check Oban Web under /admin and the app logs for the worker that is slow or failing."
+      - eval_time: 25m
+        alertname: AniaObanQueueStuck
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi, queue: mailers }
+            exp_annotations:
+              summary: "aniasienudzi Oban queue mailers is not moving"
+              description: "Queue mailers has had jobs waiting for 15m and finished none of them. Check Oban Web under /admin (is the queue paused, which jobs are executing) and the app logs."
+
+  # Mail: one failed send fires for an hour, then resolves.
+  - interval: 1m
+    input_series:
+      - series: 'ania_mailer_failures_total{job="aniasienudzi"}'
+        values: '0 0 0 1x100'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: AniaMailDeliveryFailing
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: AniaMailDeliveryFailing
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi cannot send e-mail"
+              description: "1 e-mail send(s) failed in the last hour, so login codes may not arrive. The app logs 'mail: <template> failed (job <id>): <reason>' and the error is in /admin/errors: a 535 reply means wrong credentials, a timeout a blocked port. Runbook: 'When mail does not arrive' in the aniasienudzi docs/RUNBOOK.md."
+      - eval_time: 70m
+        alertname: AniaMailDeliveryFailing
+        exp_alerts: []
+
+  # Mailer disabled: fires once the gauge has been 0 for a whole week, and
+  # survives the scrape gaps of a deploy (`_`).
+  - interval: 1h
+    input_series:
+      - series: 'ania_integration_enabled{job="aniasienudzi", integration="mailer"}'
+        values: '0x50 _ _ 0x150'
+    alert_rule_test:
+      - eval_time: 6d
+        alertname: AniaMailerDisabled
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: AniaMailerDisabled
+        exp_alerts:
+          - exp_labels: { severity: info, job: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi mailer disabled for over a week"
+              description: "The mailer has been disabled (no complete SMTP_* / MAIL_FROM group in the Air's .env) for 7+ days: sign-in e-mails are dropped. Fill in the SMTP values and run `docker compose up -d app` in ~/services/ania.kelostrada.pl; /readyz then shows \"mailer\":\"smtp\" (aniasienudzi docs/RUNBOOK.md, Email)."
+
+  # A mailer that was on at some point within the week stays quiet.
+  - interval: 1h
+    input_series:
+      - series: 'ania_integration_enabled{job="aniasienudzi", integration="mailer"}'
+        values: '0x100 1 0x100'
+    alert_rule_test:
+      - eval_time: 8d
+        alertname: AniaMailerDisabled
+        exp_alerts: []
+
+  # Push rejected for its VAPID signature.
+  - interval: 1m
+    input_series:
+      - series: 'ania_push_failures_total{job="aniasienudzi", reason="vapid"}'
+        values: '0 0 2x20'
+      - series: 'ania_push_failures_total{job="aniasienudzi", reason="gone"}'
+        values: '0+5x22'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AniaPushVapidFailing
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi, reason: vapid }
+            exp_annotations:
+              summary: "aniasienudzi push rejected (VAPID)"
+              description: "2 push(es) were rejected for their VAPID signature in the last 15m. Check VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT in the Air's .env."
+
+  # Database size from the weekly table sizes, still seen days after a
+  # restart dropped the gauge.
+  - interval: 1h
+    input_series:
+      - series: 'ania_db_table_bytes{job="aniasienudzi", table="messages"}'
+        values: '3e9x2'
+      - series: 'ania_db_table_bytes{job="aniasienudzi", table="notifications"}'
+        values: '2.5e9x2'
+    alert_rule_test:
+      - eval_time: 3d
+        alertname: AniaDatabaseLarge
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi database is over 5 GB"
+              description: "The aniasienudzi tables total 5.122GiB. Find the table that grew (ania_db_table_bytes by table) and check the Retention cron; the database is dumped to the Pi every night, so size costs backup time too."
+      - eval_time: 9d
+        alertname: AniaDatabaseLarge
+        exp_alerts: []
+
+  # Retention: the last success at t=0; stale after 26h (+30m for).
+  - interval: 10m
+    input_series:
+      - series: 'ania_retention_last_success_timestamp_seconds{job="aniasienudzi"}'
+        values: '0x200'
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: AniaRetentionStale
+        exp_alerts: []
+      - eval_time: 27h
+        alertname: AniaRetentionStale
+        exp_alerts:
+          - exp_labels: { severity: warning, job: aniasienudzi }
+            exp_annotations:
+              summary: "aniasienudzi retention has not run for over 26 hours"
+              description: "The last successful Retention run was 1d 3h 0m 0s ago. Personal data past its retention period is being kept. Check Oban Web under /admin (maintenance queue) and the app logs for Ania.Maintenance.Workers.Retention."
