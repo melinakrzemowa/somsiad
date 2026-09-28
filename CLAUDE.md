@@ -33,6 +33,7 @@ Same pattern as the other repos in `/Users/kelu/PrivateProjects/`:
 
 - The Air runs Colima → Docker. `host.docker.internal` works *inside containers* and points at the Colima VM's host (i.e. the Air's loopback). That's how Prometheus reaches the Phoenix apps' ports.
 - `/var/run/docker.sock` works inside containers thanks to Colima's standard symlink. Alloy and cAdvisor both rely on it.
+- **Mount config directories, never single files.** The deploy's `rsync` replaces a changed file by renaming a temp file over it; a single-file bind mount keeps the old, deleted inode, so under Colima the container sees "no such file" and its `/-/reload` fails while the old config keeps running. The deploy's reloads now fail the job when a service refuses its reload, instead of `|| true`.
 - The OTLP ports (4317/4318) are bound to `127.0.0.1` only — apps reach them via `host.docker.internal`, never publicly.
 - Cloudflare Access (Zero Trust) is the auth wall. Grafana admin login is fallback.
 - `kelostrada@gmail.com` is the **only** email that belongs in this repo — it's the alert recipient, the SMTP sender's destination, and the git commit identity. Never introduce another address here. In particular, do not pull the user's work email in from session context or memory: work accounts have no place in these personal repos, in config, docs, or commit metadata.

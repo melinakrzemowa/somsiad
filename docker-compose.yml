@@ -36,10 +36,15 @@ services:
       - --web.external-url=https://monitoring.melinakrzemowa.pl/alerting/
       - --web.route-prefix=/
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      # Password lives in a separate file on the host (NOT in git).
-      # Created at deploy time from .env's SMTP_PASSWORD value.
-      - ./alertmanager/smtp_password:/etc/alertmanager/smtp_password:ro
+      # The whole directory, never single files: the deploy's rsync replaces a
+      # changed file by renaming a temp file over it, and a single-file bind
+      # mount keeps pointing at the old, deleted inode. Under Colima the
+      # container then sees "no such file", the /-/reload fails and the old
+      # config stays loaded (2026-09-28: the severity=info route of 55d7f92
+      # never went live). A directory mount sees the new file.
+      # It also holds smtp_password, which lives only on the host (NOT in git;
+      # the rsync excludes it).
+      - ./alertmanager:/etc/alertmanager:ro
       - alertmanager_data:/alertmanager
     expose:
       - "9093"
