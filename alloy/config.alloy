@@ -179,6 +179,15 @@ discovery.relabel "containers" {
     target_label  = "service"
     replacement   = "cardfight-db"
   }
+  // The one shared MariaDB server (air-infra services/mariadb) that the six
+  // MariaDB-backed sites moved to on 2026-09-30. The per-site *-db rules
+  // above stay until their stopped legacy containers are deleted.
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/mariadb"
+    target_label  = "service"
+    replacement   = "mariadb"
+  }
   rule {
     source_labels = ["__meta_docker_container_name"]
     regex         = "/photoskelostradapl-museum-.*"
